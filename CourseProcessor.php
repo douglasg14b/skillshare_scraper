@@ -1,18 +1,36 @@
 <?php
+require_once 'setters.php';
+require_once 'getters.php';
+
 class CourseProcessor {
 
     public static function ProcessCourse($course){
-        try {
+        $db = self::getDBInstance();
+        $db->startTransaction();
+        try {            
             self::VerifyCourse($course);
+            Setters::updateRow($course['sku'], 'course_id', 'courses', ['downloaded' => true]);
+            if(self::ProcessCourseMeta($course)){
+                self::ProcessAuthor($course['author']);
+                self::ProcessEpisodes($course['episodes'], $course['sku']);
+                self::ProcessProject($course['project'], $course['sku']);
+                self::ProcessTags($course['tags'], $course['sku']);
+                $db->commit();
+                return [
+                    'status' => 'success'
+                ];         
+            }
+            $db->commit();
             return [
-                'status' => 'success',
-                'message' => 'success'
+                'status' => 'duplicate'
             ];
         } catch(Exception $ex){
-            return [
+            $result = [
                 'status' => 'error',
                 'message' => $ex->getMessage()
-            ];            
+            ];   
+            $db->rollback();
+            return $result;        
         }
     }
 
@@ -167,7 +185,9 @@ class CourseProcessor {
                 $db = self::getDBInstance();
                 throw new Exception($db->getLastError());                
             }
+            return true;                
         }
+        return false;
     }
 
     private static function ProcessAuthor($author){
@@ -185,26 +205,27 @@ class CourseProcessor {
     }
 
     private static function ProcessEpisodes($episodes, $courseId){
+        $db = self::getDBInstance();
         foreach($episodes as $episode){
             self::ProcessEpisodeThumbnails($episode['thumbnails'], $episode['episodeId']);
 
-            if(!Setters::rowExists('episodes', ['episode_id' => $episode['episodeId'])){
+            if(!Setters::rowExists('episodes', ['episode_id' => $episode['episodeId']])){
+
                 $id = Setters::insertRow('episodes', [
                     'episode_id' => $episode['episodeId'],
                     'course_id' => $courseId,
                     'number' => $episode['number'],
-                    'created_at' => $episode['createdAt'],
+                    'created_at' => $db->func("STR_TO_DATE(?, '%Y-%m-%dT%H:%i:%s.%fZ')", [$episode['createdAt']]),
                     'title' => $episode['title'],
                     'video_id' => $episode['videoId'],
-                    'video_avg_bitrate' => $episode['avgBitrate'],
-                    'video_duration' => $episode['duration'],
-                    'video_height' => $episode['height'],
-                    'video_size' => $episode['size'],
-                    'video_url' => $episode['url'],
-                    'video_width' => $episode['width'],                    
+                    'video_avg_bitrate' => $episode['source']['avgBitrate'],
+                    'video_duration' => $episode['source']['duration'],
+                    'video_height' => $episode['source']['height'],
+                    'video_size' => $episode['source']['size'],
+                    'video_url' => $episode['source']['url'],
+                    'video_width' => $episode['source']['width'],                    
                 ]);
                 if(!$id){
-                    $db = self::getDBInstance();
                     throw new Exception($db->getLastError());
                 }         
             }
@@ -212,7 +233,7 @@ class CourseProcessor {
     }
 
     private static function ProcessEpisodeThumbnails($thumbnails, $episodeId){
-        if(!Setters::rowExists('thumbnails', ['episode_id' => $episodeId)){
+        if(!Setters::rowExists('thumbnails', ['episode_id' => $episodeId])){
             $id = Setters::insertRow('thumbnails', [
                 'episode_id' => $episodeId,
                 'huge_url' => $thumbnails['huge'],
@@ -229,8 +250,76 @@ class CourseProcessor {
         }
     }
 
-    private static function ProcessProject(){
-        
+    private static function ProcessProject($project, $courseId){
+        if(!Setters::rowExists('projects', ['course_id' => $courseId])){
+            $id = Setters::insertRow('projects', [
+                'course_id' => $courseId,
+                'has_attachments' => $project['hasAttachments'],
+                'project_guide' => $project['projectGuide']
+            ]);
+            if(!$id){
+                $db = self::getDBInstance();
+                throw new Exception($db->getLastError());
+            } else if($project['hasAttachments']) {
+                self::ProcessAttachments($id, $courseId, $project['attachments']);
+            }
+        }
+    }
+
+    private static function ProcessAttachments($projectId, $courseId, $attachments){
+        foreach($attachments as $attachment){
+            $id = Setters::insertRow('attachments', [
+                'course_id' => $courseId,
+                'project_id' => $projectId,
+                'title' => $attachment['title'],
+                'url' => $attachment['url'],
+                'size_string' => $attachment['sizeString'],
+                'size' => $attachment['size']
+            ]);
+            if(!$id){
+                $db = self::getDBInstance();
+                throw new Exception($db->getLastError());
+            }
+        }
+    }
+
+    private static function ProcessTags($tags, $courseId){
+        foreach($tags as $tag){
+            $tagId = self::ProcessTag($tag);
+            $id = Setters::insertRow('course_tags', [
+                'tag_id' => $tagId,
+                'course_id' => $courseId
+            ]);
+            if(!$id){
+                $db = self::getDBInstance();
+                throw new Exception($db->getLastError());
+            }
+        }
+    }
+
+    //Returns tag id if exists, if not creates tag and returns id
+    private static function ProcessTag($tag){
+        if(!Setters::rowExists('tags', ['name' => $tag['name']])){
+            $id = Setters::insertRow('tags', [
+                'name' => $tag['name'],
+                'slug' => $tag['slug'],
+                'classes' => $tag['numClasses'],
+                'followers' => $tag['numFollowers'],
+            ]);
+            if(!$id){
+                $db = self::getDBInstance();
+                throw new Exception($db->getLastError());
+            } else {
+                return $id;
+            }        
+        } else {
+            $id = Getters::GetValue('tags', ['name' => $tag['name']], 'id');
+            if(!$id){
+                throw new Exception($db->getLastError());
+            } else {
+                return $id;
+            }
+        }
     }
 
     private static function getDBInstance(){

@@ -25,6 +25,19 @@ $app->get('/test', function($request, $response, $args){
 });
 
 //Adds a new course and it's link to the DB
+$app->get('/next', function($request, $response, $args){
+    $data = Getters::Get('courses', ['downloaded' => false, 'assigned' => false], ['course_id as courseId', 'link'], 1);
+
+    if($data){
+        //Setters::updateRow($data[0]['courseId'], 'course_id', 'courses', ['assigned' => true]);
+        return formatResponse($response, 'success', 'Success', $data[0]);
+    } else {
+        $db = getDBInstance();
+        return formatServerErrorResponse($response, $db->getLastQuery());
+    }
+});
+
+//Adds a new course and it's link to the DB
 $app->post('/course/new', function($request, $response, $args){
     $parsed = $request->getParsedBody();
     if(!array_key_exists("link", $parsed)){
@@ -61,16 +74,17 @@ $app->post('/course/new', function($request, $response, $args){
 //Adds course data
 $app->post('/course/{id}/data', function($request, $response, $args){
     $parsed = $request->getParsedBody();
-    if(!array_key_exists("data", $parsed)){
+    if(empty($parsed)){
         return formatBadRequestResponse($response, "No data supplied");
     }
 
-    $data = $parsed['data'];
-    $result = CourseProcessor::ProcessCourse($data);
+    $result = CourseProcessor::ProcessCourse($parsed);
     if($result['status'] == 'success'){
-        return formatResponse($response, 'success', 'Valid Course', $data);
+        return formatResponse($response, 'success', 'Sucessfully inserted', $parsed);
+    } else if($result['status'] == 'duplicate') {
+        return formatConflictResponse($response, 'Course Already Exists');
     } else {
-        formatServerErrorResponse($response, $result['message']);
+        return formatServerErrorResponse($response, $result['message']);
     }
 
 });
