@@ -29,7 +29,7 @@ $app->get('/next', function($request, $response, $args){
     $data = Getters::Get('courses', ['downloaded' => false, 'assigned' => false], ['course_id as courseId', 'link'], 1);
 
     if($data){
-        //Setters::updateRow($data[0]['courseId'], 'course_id', 'courses', ['assigned' => true]);
+        Setters::updateRow($data[0]['courseId'], 'course_id', 'courses', ['assigned' => true]);
         return formatResponse($response, 'success', 'Success', $data[0]);
     } else {
         $db = getDBInstance();
@@ -69,6 +69,18 @@ $app->post('/course/new', function($request, $response, $args){
         }     
     }
     return formatConflictResponse($response, "Course Already Exists");
+});
+
+$app->post('/course/{id}/locked', function($request, $response, $args){
+
+    $id = $args['id'];
+    $result = Setters::updateRow($id, 'course_id', 'courses', ['locked' => true]);
+    if(!$result){
+        $db = getDBInstance();
+        $error = $db->getLastError();
+        return formatServerErrorResponse($response, $error);     
+    }
+    return formatResponse($response, 'success', 'Marked as locked', $id);
 });
 
 //Adds course data

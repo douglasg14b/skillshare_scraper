@@ -91,8 +91,12 @@ class CourseProcessor {
                     'thumbnail',
                     'original'
                 ];
+                if(!$episode['hasSource']){
+                    continue;
+                }
+
                 foreach($episodeKeys as $property){
-                    if(!array_key_exists($property, $episode) || empty($episode[$property])){
+                    if(!array_key_exists($property, $episode) || (empty($episode[$property]) && strlen($episode[$property]) == 0)){
                         throw new Exception("Episode missing $property");
                     }
                 }
@@ -103,9 +107,10 @@ class CourseProcessor {
                     }
                 }   
 
+                //Inserts blank thumbnail values where missing
                 foreach($thumbnailKeys as $property){
                     if(!array_key_exists($property, $episode['thumbnails']) || empty($episode['thumbnails'][$property])){
-                        throw new Exception("Thumbnails missing $property");
+                        $episode['thumbnails'][$property] = null;
                     }
                 }  
             }
@@ -125,7 +130,7 @@ class CourseProcessor {
                     ];
 
                     foreach($keys as $property){
-                        if(!array_key_exists($property, $attachment) || empty($attachment[$property])){
+                        if(!array_key_exists($property, $attachment)){
                             throw new Exception("Attachment missing $property");
                         }
                     }
@@ -161,7 +166,7 @@ class CourseProcessor {
                     'slug'
                 ];
                 foreach($keys as $property){
-                    if(!array_key_exists($property, $tag) || empty($tag[$property])){
+                    if(!array_key_exists($property, $tag)){
                         throw new Exception("Tag missing $property");
                     }
                 }    
@@ -208,23 +213,40 @@ class CourseProcessor {
         $db = self::getDBInstance();
         foreach($episodes as $episode){
             self::ProcessEpisodeThumbnails($episode['thumbnails'], $episode['episodeId']);
-
+            //Fix this to handle potentially missing values, null--coalesce operator if php7
             if(!Setters::rowExists('episodes', ['episode_id' => $episode['episodeId']])){
-
-                $id = Setters::insertRow('episodes', [
-                    'episode_id' => $episode['episodeId'],
-                    'course_id' => $courseId,
-                    'number' => $episode['number'],
-                    'created_at' => $db->func("STR_TO_DATE(?, '%Y-%m-%dT%H:%i:%s.%fZ')", [$episode['createdAt']]),
-                    'title' => $episode['title'],
-                    'video_id' => $episode['videoId'],
-                    'video_avg_bitrate' => $episode['source']['avgBitrate'],
-                    'video_duration' => $episode['source']['duration'],
-                    'video_height' => $episode['source']['height'],
-                    'video_size' => $episode['source']['size'],
-                    'video_url' => $episode['source']['url'],
-                    'video_width' => $episode['source']['width'],                    
-                ]);
+                $id = null;
+                if($episode['hasSource']){
+                    $id = Setters::insertRow('episodes', [
+                        'episode_id' => $episode['episodeId'],
+                        'course_id' => $courseId,
+                        'number' => $episode['number'],
+                        'created_at' => $db->func("STR_TO_DATE(?, '%Y-%m-%dT%H:%i:%s.%fZ')", [$episode['createdAt']]),
+                        'title' => $episode['title'],
+                        'video_id' => $episode['videoId'],
+                        'video_avg_bitrate' => $episode['source']['avgBitrate'],
+                        'video_duration' => $episode['source']['duration'],
+                        'video_height' => $episode['source']['height'],
+                        'video_size' => $episode['source']['size'],
+                        'video_url' => $episode['source']['url'],
+                        'video_width' => $episode['source']['width'],
+                        'has_source' => true
+                    ]);
+                } else {
+                    $insertData = [
+                        'episode_id' => $episode['episodeId'],
+                        'course_id' => $courseId,
+                        'number' => $episode['number'],
+                        'created_at' => $db->func("STR_TO_DATE(?, '%Y-%m-%dT%H:%i:%s.%fZ')", [$episode['createdAt']]),
+                        'title' => $episode['title'],
+                        'video_id' => $episode['videoId'],
+                        'has_source' => false                     
+                    ];
+                    if(array_key_exists('createdAt', $episode) && !empty($episode['createdAt'])){
+                        $insertData['created_at'] = $db->func("STR_TO_DATE(?, '%Y-%m-%dT%H:%i:%s.%fZ')", [$episode['createdAt']]);
+                    }
+                    $id = Setters::insertRow('episodes', $insertData);               
+                }
                 if(!$id){
                     throw new Exception($db->getLastError());
                 }         
@@ -234,15 +256,23 @@ class CourseProcessor {
 
     private static function ProcessEpisodeThumbnails($thumbnails, $episodeId){
         if(!Setters::rowExists('thumbnails', ['episode_id' => $episodeId])){
-            $id = Setters::insertRow('thumbnails', [
+            $keys = [
+                'huge',
+                'large',
+                'medium',
+                'small',
+                'thumbnail',
+                'original'
+            ];
+            $insertData = [
                 'episode_id' => $episodeId,
-                'huge_url' => $thumbnails['huge'],
-                'large_url' => $thumbnails['large'],
-                'medium_url' => $thumbnails['medium'],
-                'small_url' => $thumbnails['small'],
-                'thumbnail_url' => $thumbnails['thumbnail'],
-                'original_url' => $thumbnails['original'],
-            ]);
+            ];
+            foreach($keys as $key){
+                if(array_key_exists($key, $thumbnails)){
+                    $insertData[$key.'_url'] = $thumbnails[$key];
+                }
+            }
+            $id = Setters::insertRow('thumbnails', $insertData);
             if(!$id){
                 $db = self::getDBInstance();
                 throw new Exception($db->getLastError());

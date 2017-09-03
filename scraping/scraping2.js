@@ -30,32 +30,208 @@
     }
  */
 (function(){
+    let manualMode = true;
 
     let dataGetter = null;
+    let serverComms = null;
+
+    let contaier = null;
+    let statusBox = null;
+    let toggleModeButton = null;
 
     function init(){
-        dataGetter = new DataGetterModule();
-        dataGetter.getData().then(function(){
-            console.log("=============================== Data Pulled ==================================");
-            console.log(dataGetter.data);
-            let dataToSend = {
-                data: dataGetter.data
-            };
-            $.ajax({
-                url: `https://192.168.2.4/skillshare/api/course/${dataGetter.data.sku}/data`,
-                type: 'POST',
-                dataType: "xml/html/script/json",
-                contentType: "application/json",
-                crossOrigin: true,
-                data: JSON.stringify(dataGetter.data)
-            });
-            //$.post(`https://192.168.2.4/skillshare/api/course/${dataGetter.data.sku}/data`, dataToSend);
-        })
+        serverComms = new ServerCommunicationModule();
+        dataGetter = new CourseDataGetterModule();
+        addContainer();
+        addNextButton();
+        addStatusBox();
+        addToggleModeButton();
+
+        dataGetter.getData().then(
+            () => {
+                serverComms.sendData(dataGetter.data).then(handleSendSuccess, handleSendFailure);
+            },
+            (message) => {
+                if(message = 'locked'){
+                    serverComms.markLocked(dataGetter.data.sku).then(handleSendSuccess, handleSendFailure);
+                }
+            }
+        );
+    }
+
+    //Main loop
+    /*function go(){
+        serverComms.moveNext().then(() => {
+                dataGetter = new CourseDataGetterModule();
+                setStatus('pulling');
+                dataGetter.getData().then(() => {
+                    serverComms.sendData.then(handleSendSuccess, handleSendFailure);
+                })
+            }
+        )
+    }*/
+
+    function handleSendSuccess(result){
+        setStatus('pulled');
+        if(!manualMode){
+            serverComms.moveNext();
+        }
+    }
+
+    function handleSendFailure(result){
+        if(result.status == 409){
+            setStatus('duplicate');
+            if(!manualMode){
+                serverComms.moveNext();
+            }
+        } else {
+            setStatus('failure');
+            console.log(result);
+        }
+    }
+
+    function setStatus(status){
+        switch(status){
+            case 'waiting':
+                statusBox.css('background','#deb930');
+                statusBox.text('Waiting');
+                break;
+            case 'pulling':
+                statusBox.css('background', '#30d6de');
+                statusBox.text('Waiting');
+                break;
+            case 'pulled':
+                statusBox.css('background', '#29bf2e');
+                statusBox.text('Pulled & Sent');
+                break;
+            case 'failure':
+                statusBox.css('background', '#de3030');
+                statusBox.text('Failure');
+                break;
+            case 'duplicate':
+                statusBox.css('background', '#de3030');
+                statusBox.text('Already Exists');
+                break;
+        }
+    }
+
+    function toggleMode(){
+        manualMode = !manualMode;
+        if(manualMode){
+            toggleModeButton.text('Set Automatic Mode');
+        } else {
+            toggleModeButton.text('Set Manual Mode');
+        }
+    }
+
+    function addContainer(){
+        container = $('<div></div>');
+        container.css({
+            'top': '40vh',
+            'right':10,
+            'position': 'fixed',
+            'z-index': 9999,
+            'text-align': 'center'
+        });
+        $('body').append(container);
+    }
+
+    function addNextButton(){
+        let button = $('<div><button>Next Page</button></div>');
+        button.css({
+            'padding': '0.4em'
+        });
+        container.append(button);
+        button.on('click', serverComms.moveNext);
+    }
+
+    function addToggleModeButton(){
+        toggleModeButton = $('<button></button>');
+        toggleModeButton.css({
+            'padding': '0.4em',
+            'display': 'block'
+        });
+        if(manualMode){
+            toggleModeButton.text('Set Automatic Mode');
+        } else {
+            toggleModeButton.text('Set Manual Mode');
+        }
+        container.append(toggleModeButton);
+        toggleModeButton.on('click', toggleMode);
+    }
+
+    function addStatusBox(){
+        statusBox = $('<div></div>');
+        statusBox.css({
+            'background': 'yellow'
+        });
+        statusBox.text('Waiting');
+        container.append(statusBox);
     }
 
     init();
 
-    function DataGetterModule(){
+    function ServerCommunicationModule(){
+        let self = this;
+
+        //Fields API
+        self.canContinue = false;
+
+        //Methods API
+        self.getNext = getNext;
+        self.moveNext = moveNext;
+        self.sendData = sendData;
+        self.markLocked = markLocked;
+
+
+        function moveNext(){
+            getNext().then(
+                (result) => {
+                    goToPage(result.data.link);
+                },
+                (result) => {
+                    setStatus('failure');
+                }
+            );
+        }
+
+        function getNext(){
+            return $.get('https://192.168.2.4/skillshare/api/next');
+        }
+
+        function markLocked(id){
+            return $.post(`https://192.168.2.4/skillshare/api/course/${id}/locked`);
+        }
+
+        function sendData(data){
+            let deferred = Q.defer();
+
+            $.ajax({
+                url: `https://192.168.2.4/skillshare/api/course/${data.sku}/data`,
+                type: 'POST',
+                contentType: "application/json",
+                crossOrigin: true,
+                data: JSON.stringify(data)
+            }).done(function(result){
+                deferred.resolve();
+            }).fail(function(result, error){
+                console.log(error);
+                deferred.reject(result);
+            });
+
+            return deferred.promise;
+        }
+
+        //Private functions
+
+        function goToPage(url){
+            window.location.href = url;
+        }
+
+
+    }
+
+    function CourseDataGetterModule(){
         let self = this;
         let data = {
             sku: NaN,
@@ -86,6 +262,7 @@
         function getCourseEpisodes(){
             let deferred = Q.defer();
 
+            let numCompleted = 0;
             let sourceList = SS.serverBootstrap.pageData.unitsData.units[0].sessions;
             let accountId = getBrightcoveAccountId();
             for(let i = 0; i < sourceList.length; i++){
@@ -98,42 +275,86 @@
                     }
                 }).then(
                     (result) => {
-                        let source = getPreferredVideoSource(result.sources);
                         let episode = {
                             episodeId: sourceList[i].id,
                             number: sourceList[i].displayRank,
                             createdAt: result.created_at,
                             title: sourceList[i].title,
-                            videoId: videoId,
-                            thumbnails:sourceList[i].thumbnails,
-                            source: {
-                                url: source.src,
-                                height: source.height,
-                                width: source.width,
-                                duration: source.duration,
-                                size: source.size,
-                                avgBitrate: source.avg_bitrate
-                            }
+                            videoId: videoId
+                        };
+                        let sourceIndex = getPreferredVideoSourceIndex(result.sources);
+                        if(sourceIndex >= 0){
+                            episode.source = {
+                                url: result.sources[sourceIndex].src,
+                                height: result.sources[sourceIndex].height,
+                                width: result.sources[sourceIndex].width,
+                                duration: result.sources[sourceIndex].duration,
+                                size: result.sources[sourceIndex].size,
+                                avgBitrate: result.sources[sourceIndex].avg_bitrate
+                            };
+                            episode.hasSource = true;
+                        } else {
+                            episode.hasSource = false;
                         }
+
+                        if(!isEmpty(sourceList[i].thumbnails)){
+                            episode.thumbnails = JSON.parse(JSON.stringify(sourceList[i].thumbnails));
+                        } else {
+                            episode.thumbnails = { original: result.thumbnail };
+                        }
+
                         data.episodes.push(episode);
-                        if(i == sourceList.length - 1){
+                        numCompleted++;
+                        if(numCompleted == sourceList.length - 1){
                             deferred.resolve();
                         }
+                    },
+                    (result) => {
+                        if(result.responseJSON[0].error_code == "VIDEO_NOT_PLAYABLE"){
+                            let episode = {
+                                episodeId: sourceList[i].id,
+                                number: sourceList[i].displayRank,
+                                title: sourceList[i].title,
+                                videoId: videoId,
+                                hasSource: false
+                            };
+
+                            data.episodes.push(episode);
+                            numCompleted++;
+                            if(numCompleted == sourceList.length - 1){
+                                deferred.resolve();
+                            }
+                        } else {
+                            numCompleted++;
+                            console.log(result);
+                            throw "Unexpected Error Occured";
+                        }
                     }
-                )
+                );
             }
             return deferred.promise;
         }
 
         //Used by getCourseEpisodes()
-        function getPreferredVideoSource(sources){
+        function getPreferredVideoSourceIndex(sources){
+
+            let alternateSrc = [];
+            //Find preferred
             for(let i = 0; i < sources.length; i++){
                 if(typeof sources[i].src != 'undefined'){
                     if(sources[i].src.includes('udso-a.akamaihd.net')){
-                        return sources[i];
+                        return i;
+                    } else if(sources[i].src.includes('uds.ak.o.brightcove.com')){
+                        alternateSrc.push(i);
                     }
                 }
             }
+            
+            if(alternateSrc.length > 0){
+                return alternateSrc[0];
+            }
+
+            return -1;
         }
 
         function getProjectGuide(){
@@ -150,7 +371,7 @@
                         projectGuide: result.project_guide,
                         hasAttachments: result.hasAttachments,
                         attachments: []
-                    }
+                    };
                     if(result.hasAttachments == true || result.hasAttachments == 'true'){
                         for(let i = 0; i < result.attachments.length; i++){
                             project.attachments.push({
@@ -158,7 +379,7 @@
                                 title: result.attachments[i].title,
                                 size: parseSizeString(result.attachments[i].size),
                                 sizeString: result.attachments[i].size
-                            })
+                            });
                         }
                     }
                     data.project = project;
@@ -170,6 +391,9 @@
         }
 
         function parseSizeString(sizeString){
+            if(isEmpty(sizeString)){
+                return 0;
+            }
             if(sizeString.includes("KB")){
                 return parseInt(sizeString) * 1000;
             } else if(sizeString.includes("MB")){
@@ -283,8 +507,19 @@
             return "BCpkADawqM2OOcM6njnM7hf9EaK6lIFlqiXB0iWjqGWUQjU7R8965xUvIQNqdQbnDTLz0IAO7E6Ir2rIbXJtFdzrGtitoee0n1XXRliD-RH9A-svuvNW9qgo3Bh34HEZjXjG4Nml4iyz3KqF";
         }
 
+        function isClassLocked(){
+            return SS.serverBootstrap.pageData.unitsData.isLocked;
+        }
+
         function getData(){
-            data.sku = getClassSku();
+            data.sku = getClassSku(); //First so it's available
+
+            if(isClassLocked()){
+                let deferred = Q.defer();
+                deferred.reject("Locked");
+                return deferred.promise;
+            }
+
             return getClassInfo().then(function(){
                 return getProjectGuide();
             })
@@ -298,17 +533,20 @@
 })();
 
 function isEmpty(value){
-  if(typeof(value) == 'object'){
-    if(Object.keys(value).length == 0){
-      return true;
-    } else {
-      return false;
+    if(value === null){
+        return true;
     }
-  }
+    if(typeof(value) == 'object'){
+        if(Object.keys(value).length == 0){
+        return true;
+        } else {
+        return false;
+        }
+    }
 
-  if(typeof(value) !== 'undefined' && value !== null && value.length != 0){
-    return false;
-  }
+    if(typeof(value) !== 'undefined' && value !== null && value.length != 0){
+        return false;
+    }
 
-  return true;
+    return true;
 }
