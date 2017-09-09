@@ -30,7 +30,7 @@
     }
  */
 (function(){
-    let manualMode = true;
+    let manualMode = false;
 
     let dataGetter = null;
     let serverComms = null;
@@ -38,38 +38,27 @@
     let contaier = null;
     let statusBox = null;
     let toggleModeButton = null;
+    let timer = null;
+    let time = 0;
 
-    function init(){
+    async function init(){
         serverComms = new ServerCommunicationModule();
         dataGetter = new CourseDataGetterModule();
         addContainer();
         addNextButton();
         addStatusBox();
         addToggleModeButton();
+        startTimer();
 
-        dataGetter.getData().then(
-            () => {
-                serverComms.sendData(dataGetter.data).then(handleSendSuccess, handleSendFailure);
-            },
-            (message) => {
-                if(message = 'locked'){
-                    serverComms.markLocked(dataGetter.data.sku).then(handleSendSuccess, handleSendFailure);
-                }
-            }
-        );
+        setStatus('pulling');
+        let getterStatus = await dataGetter.getData();
+
+        if(getterStatus.success){
+            serverComms.sendData(dataGetter.data).then(handleSendSuccess, handleSendFailure);
+        } else if(getterStatus.reason == 'locked') {
+            serverComms.markLocked(dataGetter.data.sku).then(handleSendSuccess, handleSendFailure);
+        }
     }
-
-    //Main loop
-    /*function go(){
-        serverComms.moveNext().then(() => {
-                dataGetter = new CourseDataGetterModule();
-                setStatus('pulling');
-                dataGetter.getData().then(() => {
-                    serverComms.sendData.then(handleSendSuccess, handleSendFailure);
-                })
-            }
-        )
-    }*/
 
     function handleSendSuccess(result){
         setStatus('pulled');
@@ -90,27 +79,46 @@
         }
     }
 
+    function updateTime(){
+        time++;
+        statusBox.find('.time').text(` ${time} seconds`);
+
+    }
+
+    function startTimer(){
+        timer = setInterval(updateTime, 1000);
+        time = 1;
+        statusBox.find('.time').text(` ${time} seconds`);
+    }
+
+    function stopTimer(){
+        clearInterval(timer);
+    }
+
     function setStatus(status){
         switch(status){
             case 'waiting':
-                statusBox.css('background','#deb930');
-                statusBox.text('Waiting');
+                statusBox.find('.status').css('background','#deb930');
+                statusBox.find('.status').text('Waiting');
                 break;
             case 'pulling':
-                statusBox.css('background', '#30d6de');
-                statusBox.text('Waiting');
+                statusBox.find('.status').css('background', '#30d6de');
+                statusBox.find('.status').text('Waiting');
                 break;
             case 'pulled':
-                statusBox.css('background', '#29bf2e');
-                statusBox.text('Pulled & Sent');
+                statusBox.find('.status').css('background', '#29bf2e');
+                statusBox.find('.status').text('Pulled & Sent');
+                stopTimer();
                 break;
             case 'failure':
-                statusBox.css('background', '#de3030');
-                statusBox.text('Failure');
+                statusBox.find('.status').css('background', '#de3030');
+                statusBox.find('.status').text('Failure');
+                stopTimer();
                 break;
             case 'duplicate':
-                statusBox.css('background', '#de3030');
-                statusBox.text('Already Exists');
+                statusBox.find('.status').css('background', '#de3030');
+                statusBox.find('.status').text('Already Exists');
+                stopTimer();
                 break;
         }
     }
@@ -139,7 +147,7 @@
     function addNextButton(){
         let button = $('<div><button>Next Page</button></div>');
         button.css({
-            'padding': '0.4em'
+            'margin': '0.4em'
         });
         container.append(button);
         button.on('click', serverComms.moveNext);
@@ -148,7 +156,7 @@
     function addToggleModeButton(){
         toggleModeButton = $('<button></button>');
         toggleModeButton.css({
-            'padding': '0.4em',
+            'margin': '0.4em',
             'display': 'block'
         });
         if(manualMode){
@@ -161,11 +169,12 @@
     }
 
     function addStatusBox(){
-        statusBox = $('<div></div>');
+        statusBox = $('<div><div class="status"></div><div class="time"></div></div>');
         statusBox.css({
-            'background': 'yellow'
+            'background': 'yellow',
+            'margin': '0.4em'
         });
-        statusBox.text('Waiting');
+        statusBox.find('.status').text('Waiting');
         container.append(statusBox);
     }
 
@@ -258,82 +267,106 @@
         self.data = data;
 
 
+        /* ====== Episode Getting ====== */
 
-        function getCourseEpisodes(){
+        async function getCourseEpisodes(){
             let deferred = Q.defer();
 
             let numCompleted = 0;
             let sourceList = SS.serverBootstrap.pageData.unitsData.units[0].sessions;
             let accountId = getBrightcoveAccountId();
             for(let i = 0; i < sourceList.length; i++){
+                if(!sourceList[i].videoId){
+                    handleEpisodeGetFailure('forced_error', sourceList[i], null);
+                    continue;
+                }
                 let videoId = sourceList[i].videoId.substring(sourceList[i].videoId.indexOf(":") + 1, sourceList[i].videoId.length);
-                $.ajax({
-                    url: `https://edge.api.brightcove.com/playback/v1/accounts/${accountId}/videos/${videoId}`,
-                    type: 'GET',
-                    headers: {
-                        Accept: `application/json;pk=${getPolicyKey()}`
-                    }
-                }).then(
-                    (result) => {
-                        let episode = {
-                            episodeId: sourceList[i].id,
-                            number: sourceList[i].displayRank,
-                            createdAt: result.created_at,
-                            title: sourceList[i].title,
-                            videoId: videoId
-                        };
-                        let sourceIndex = getPreferredVideoSourceIndex(result.sources);
-                        if(sourceIndex >= 0){
-                            episode.source = {
-                                url: result.sources[sourceIndex].src,
-                                height: result.sources[sourceIndex].height,
-                                width: result.sources[sourceIndex].width,
-                                duration: result.sources[sourceIndex].duration,
-                                size: result.sources[sourceIndex].size,
-                                avgBitrate: result.sources[sourceIndex].avg_bitrate
-                            };
-                            episode.hasSource = true;
-                        } else {
-                            episode.hasSource = false;
-                        }
-
-                        if(!isEmpty(sourceList[i].thumbnails)){
-                            episode.thumbnails = JSON.parse(JSON.stringify(sourceList[i].thumbnails));
-                        } else {
-                            episode.thumbnails = { original: result.thumbnail };
-                        }
-
-                        data.episodes.push(episode);
-                        numCompleted++;
-                        if(numCompleted == sourceList.length - 1){
-                            deferred.resolve();
-                        }
-                    },
-                    (result) => {
-                        if(result.responseJSON[0].error_code == "VIDEO_NOT_PLAYABLE"){
-                            let episode = {
-                                episodeId: sourceList[i].id,
-                                number: sourceList[i].displayRank,
-                                title: sourceList[i].title,
-                                videoId: videoId,
-                                hasSource: false
-                            };
-
-                            data.episodes.push(episode);
-                            numCompleted++;
-                            if(numCompleted == sourceList.length - 1){
-                                deferred.resolve();
+                try {
+                    await new Promise (async (resolve) => {
+                        $.ajax({
+                            url: `https://edge.api.brightcove.com/playback/v1/accounts/${accountId}/videos/${videoId}`,
+                            type: 'GET',
+                            headers: {
+                                Accept: `application/json;pk=${getPolicyKey()}`
                             }
-                        } else {
-                            numCompleted++;
-                            console.log(result);
-                            throw "Unexpected Error Occured";
-                        }
-                    }
-                );
+                        }).then(
+                            function(result){
+                                handleEpisodeGetSuccess(result, sourceList[i], videoId);
+                                resolve();
+                            },
+                            function(result){
+                                handleEpisodeGetFailure(result, sourceList[i], videoId);
+                                resolve();
+                            }
+                        );
+                    });
+                } catch(e){
+                    debugger;
+                }
             }
+            deferred.resolve();
             return deferred.promise;
         }
+
+        function handleEpisodeGetSuccess(result, episodeData, videoId){
+            let episode = {
+                episodeId: episodeData.id,
+                number: episodeData.displayRank,
+                createdAt: result.created_at,
+                title: episodeData.title,
+                videoId: videoId
+            };
+            let sourceIndex = getPreferredVideoSourceIndex(result.sources);
+            if(sourceIndex >= 0){
+                episode.source = {
+                    url: result.sources[sourceIndex].src,
+                    height: result.sources[sourceIndex].height,
+                    width: result.sources[sourceIndex].width,
+                    duration: result.sources[sourceIndex].duration,
+                    size: result.sources[sourceIndex].size,
+                    avgBitrate: result.sources[sourceIndex].avg_bitrate
+                };
+                episode.hasSource = true;
+            } else {
+                episode.hasSource = false;
+            }
+
+            if(!isEmpty(episodeData.thumbnails)){
+                episode.thumbnails = JSON.parse(JSON.stringify(episodeData.thumbnails));
+                episode.hasThumbNails = true;
+            } else if(!isEmpty(result.thumbnail)) {
+                episode.thumbnails = { original: result.thumbnail };
+            } else {
+                episode.thumbnails = [];
+            }
+            data.episodes.push(episode);
+        }
+
+        function handleEpisodeGetFailure(result, episodeData, videoId){
+            let errorCode = '';
+            if(result != "forced_error"){
+                errorCode = result.responseJSON[0].error_code;
+            } else {
+                errorCode = result;
+            }
+
+            if(errorCode == "forced_error" || errorCode == "VIDEO_NOT_PLAYABLE" || errorCode == "VIDEO_NOT_FOUND" || errorCode == "VIDEO_URLS_RETRIEVE_FAILURE"){
+                let episode = {
+                    episodeId: episodeData.id,
+                    number: episodeData.displayRank,
+                    title: episodeData.title,
+                    videoId: videoId,
+                    hasSource: false
+                };
+
+                data.episodes.push(episode);
+            } else {
+                console.log(result);
+                throw "Unexpected Error Occured";
+            }
+        }
+
+        /* ====== END Episode Getting ====== */
 
         //Used by getCourseEpisodes()
         function getPreferredVideoSourceIndex(sources){
@@ -349,7 +382,7 @@
                     }
                 }
             }
-            
+
             if(alternateSrc.length > 0){
                 return alternateSrc[0];
             }
@@ -511,26 +544,32 @@
             return SS.serverBootstrap.pageData.unitsData.isLocked;
         }
 
-        function getData(){
+        async function getData(){
             data.sku = getClassSku(); //First so it's available
 
             if(isClassLocked()){
-                let deferred = Q.defer();
-                deferred.reject("Locked");
-                return deferred.promise;
+                return {
+                    success: false,
+                    reason: "locked"
+                }
             }
 
-            return getClassInfo().then(function(){
-                return getProjectGuide();
-            })
-            .then(function(){
-                return getCourseEpisodes();
-            });
+            await getClassInfo();
+            await getProjectGuide();
+            await getCourseEpisodes();
+
+            return {
+                success: true
+            }
         }
     }
 
 
 })();
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 function isEmpty(value){
     if(value === null){

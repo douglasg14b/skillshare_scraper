@@ -20,7 +20,8 @@ $c = new \Slim\Container($configuration);
 $app = new \Slim\App($c);
 
 //Adds a new course and it's link to the DB
-$app->get('/test', function($request, $response, $args){
+$app->get('/delay', function($request, $response, $args){
+    sleep(5);
     return formatResponse($response, 'success', 'sucess stuff'); 
 });
 

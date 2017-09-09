@@ -70,7 +70,7 @@ class CourseProcessor {
                     'episodeId',
                     'number',
                     'source',
-                    'thumbnails',
+                    //'thumbnails',
                     'title',
                     'videoId'
                 ];
@@ -96,8 +96,16 @@ class CourseProcessor {
                 }
 
                 foreach($episodeKeys as $property){
-                    if(!array_key_exists($property, $episode) || (empty($episode[$property]) && strlen($episode[$property]) == 0)){
-                        throw new Exception("Episode missing $property");
+                    if(!array_key_exists($property, $episode) || empty($episode[$property])){
+                        if(gettype($episode[$property]) == "string" || gettype($episode[$property]) == "integer"){
+                            if(strlen($episode[$property]) == 0){
+                                $num = $episode['number'];
+                                throw new Exception("Episode $num missing $property");
+                            }
+                        } else {
+                            $num = $episode['number'];
+                            throw new Exception("Episode $num missing $property");
+                        }
                     }
                 }
 
@@ -212,8 +220,12 @@ class CourseProcessor {
     private static function ProcessEpisodes($episodes, $courseId){
         $db = self::getDBInstance();
         foreach($episodes as $episode){
-            self::ProcessEpisodeThumbnails($episode['thumbnails'], $episode['episodeId']);
-            //Fix this to handle potentially missing values, null--coalesce operator if php7
+
+            //Some episodes won't have thumbnails
+            if(array_key_exists('thumbnails', $episode) && !empty($episode['thumbnails'])){
+                self::ProcessEpisodeThumbnails($episode['thumbnails'], $episode['episodeId']);
+            }
+
             if(!Setters::rowExists('episodes', ['episode_id' => $episode['episodeId']])){
                 $id = null;
                 if($episode['hasSource']){
@@ -237,14 +249,16 @@ class CourseProcessor {
                         'episode_id' => $episode['episodeId'],
                         'course_id' => $courseId,
                         'number' => $episode['number'],
-                        'created_at' => $db->func("STR_TO_DATE(?, '%Y-%m-%dT%H:%i:%s.%fZ')", [$episode['createdAt']]),
                         'title' => $episode['title'],
-                        'video_id' => $episode['videoId'],
                         'has_source' => false                     
                     ];
                     if(array_key_exists('createdAt', $episode) && !empty($episode['createdAt'])){
                         $insertData['created_at'] = $db->func("STR_TO_DATE(?, '%Y-%m-%dT%H:%i:%s.%fZ')", [$episode['createdAt']]);
                     }
+                    if(array_key_exists('videoId', $episode) && !empty($episode['videoId'])){
+                        $insertData['video_id'] = $episode['videoId'];
+                    }    
+                                    
                     $id = Setters::insertRow('episodes', $insertData);               
                 }
                 if(!$id){
