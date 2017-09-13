@@ -5,6 +5,7 @@ use \Psr\Http\Message\ResponseInterface as Response;
 require_once '..\vendor\autoload.php';
 require_once "..\assets\MysqliDb\MysqliDb.php";
 require_once "..\setters.php";
+require_once "..\getters.php";
 require_once "..\CourseProcessor.php";
 
 
@@ -19,7 +20,11 @@ $c = new \Slim\Container($configuration);
 
 $app = new \Slim\App($c);
 
-//Adds a new course and it's link to the DB
+$app->get('/test', function($request, $response, $args){
+    $course = Getters::GetCourseEpisodes(782118657);
+    return formatResponse($response, 'success', $course); 
+});
+
 $app->get('/delay', function($request, $response, $args){
     sleep(5);
     return formatResponse($response, 'success', 'sucess stuff'); 
@@ -27,7 +32,7 @@ $app->get('/delay', function($request, $response, $args){
 
 //Adds a new course and it's link to the DB
 $app->get('/next', function($request, $response, $args){
-    $data = Getters::Get('courses', ['downloaded' => false, 'assigned' => false], ['course_id as courseId', 'link'], 1);
+    $data = Getters::Get('courses', ['downloaded_meta' => false, 'assigned' => false], ['course_id as courseId', 'link'], 1);
 
     if($data){
         Setters::updateRow($data[0]['courseId'], 'course_id', 'courses', ['assigned' => true]);

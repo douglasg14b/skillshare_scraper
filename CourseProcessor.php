@@ -9,7 +9,7 @@ class CourseProcessor {
         $db->startTransaction();
         try {            
             self::VerifyCourse($course);
-            Setters::updateRow($course['sku'], 'course_id', 'courses', ['downloaded' => true]);
+            Setters::updateRow($course['sku'], 'course_id', 'courses', ['downloaded_meta' => true]);
             if(self::ProcessCourseMeta($course)){
                 self::ProcessAuthor($course['author']);
                 self::ProcessEpisodes($course['episodes'], $course['sku']);
