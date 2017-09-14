@@ -16,7 +16,6 @@ class Course {
     var $episodes; //Array
 
     var $attachmentsCount;
-    var $attachments; //Array
 
     var $authorId; //Navigation property
     var $author; //Object

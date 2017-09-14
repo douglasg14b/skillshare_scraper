@@ -21,8 +21,9 @@ $c = new \Slim\Container($configuration);
 $app = new \Slim\App($c);
 
 $app->get('/test', function($request, $response, $args){
-    $course = Getters::GetCourseEpisodes(782118657);
-    return formatResponse($response, 'success', $course); 
+    //$course = Getters::GetCourseEpisodes(782118657);
+    $data = Getters::GetCourse(640346588);
+    return formatResponse($response, 'success', '', $data); 
 });
 
 $app->get('/delay', function($request, $response, $args){

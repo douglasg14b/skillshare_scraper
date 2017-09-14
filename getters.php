@@ -4,6 +4,10 @@ require_once "config.php";
 
 require_once 'Factories/CourseFactory.php';
 require_once 'Factories/EpisodeFactory.php';
+require_once 'Factories/AuthorFactory.php';
+require_once 'Factories/ProjectFactory.php';
+require_once 'Factories/AttachmentFactory.php';
+require_once 'Factories/TagFactory.php';
 
 class Getters {
 
@@ -21,6 +25,16 @@ class Getters {
             $db->where($column, $value);
         }
         return $db->getValue($tableName, $columnName);   
+    }
+
+    public static function GetCourse($courseId){
+        $courseData = self::GetCourseData($courseId);
+        $courseData['author'] = self::GetAuthor($courseData['authorId']);
+        $courseData['project'] = self::GetCourseProject($courseId);
+        $courseData['episodes'] = self::GetCourseEpisodes($courseId);
+        $courseData['tags'] = self::GetCourseTags($courseId);
+        $course = CourseFactory::RenderFromDb($courseData);
+        return $course;
     }
 
     public static function GetCourseData($courseId){
@@ -41,8 +55,7 @@ class Getters {
 
         $db->where('downloaded', false);
         $courseData = $db->get('courses', 1, $columns);
-        $course = CourseFactory::RenderFromDb($courseData[0]);
-        return $course;
+        return $courseData[0];
     }
 
     public static function GetCourseEpisodes($courseId){
@@ -55,10 +68,47 @@ class Getters {
         return $episodes;
     }
 
-    public static function GetAuthor($courseId){
+    public static function GetAuthor($authorId){
         $db = getDBInstance();
+        $columns = AuthorFactory::GetMapAsColumns();
 
+        $db->where('author_id', $authorId);
+        $authorData = $db->get('authors', null, $columns);
+        $author = AuthorFactory::RenderFromDb($authorData[0]);
+        return $author;
     }
+
+    public static function GetCourseProject($courseId){
+        $db = getDBInstance();
+        $columns = ProjectFactory::GetMapAsColumns();
+
+        $db->where('course_id', $courseId);
+        $projectData = $db->get('projects', null, $columns);
+        $projectData[0]['attachments'] = self::GetAttachmentsForProject($projectData[0]['id']);
+        $project = ProjectFactory::RenderFromDb($projectData[0]);
+        return $project;
+    }
+
+    public static function GetAttachmentsForProject($projectId){
+        $db = getDBInstance();
+        $columns = AttachmentFactory::GetMapAsColumns();
+
+        $db->where('project_id', $projectId);
+        $attachmentsData = $db->get('attachments', null, $columns);
+        $attachments = AttachmentFactory::RenderManyFromDb($attachmentsData);
+        return $attachments;
+    }  
+
+    public static function GetCourseTags($courseId){
+        $db = getDBInstance();
+        $columns = TagFactory::GetMapAsColumns();
+
+        $db->where('course_id', $courseId);
+        $db->join('tags', 'tags.id = course_tags.tag_id');
+        $tagsData = $db->get('course_tags', null, $columns);
+        $tags = TagFactory::RenderManyFromDb($tagsData);
+        return $tags;
+    }  
     /* Prevents creating more DB connectons than needed */
     private static function getDBInstance(){
         $db = MysqliDb::getInstance();

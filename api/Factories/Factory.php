@@ -4,6 +4,8 @@ require_once '/../Models/Attachment.php';
 require_once '/../Models/Course.php';
 require_once '/../Models/Episode.php';
 require_once '/../Models/Author.php';
+require_once '/../Models/Project.php';
+require_once '/../Models/Tag.php';
 
 /**
  * Description of Factory
