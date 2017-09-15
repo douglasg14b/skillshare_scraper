@@ -29,6 +29,8 @@ class Getters {
 
     public static function GetCourse($courseId){
         $courseData = self::GetCourseData($courseId);
+        $courseId = $courseData['id'];
+
         $courseData['author'] = self::GetAuthor($courseData['authorId']);
         $courseData['project'] = self::GetCourseProject($courseId);
         $courseData['episodes'] = self::GetCourseEpisodes($courseId);
@@ -54,6 +56,9 @@ class Getters {
         $db->join($sq2, 'attachments.course_id = courses.course_id', 'INNER');
 
         $db->where('downloaded', false);
+        if(defined($courseId)){
+            $db->where('course_id', $courseId);
+        }
         $courseData = $db->get('courses', 1, $columns);
         return $courseData[0];
     }
@@ -108,7 +113,9 @@ class Getters {
         $tagsData = $db->get('course_tags', null, $columns);
         $tags = TagFactory::RenderManyFromDb($tagsData);
         return $tags;
-    }  
+    }
+
+    
     /* Prevents creating more DB connectons than needed */
     private static function getDBInstance(){
         $db = MysqliDb::getInstance();

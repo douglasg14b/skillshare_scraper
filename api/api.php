@@ -7,6 +7,7 @@ require_once "..\assets\MysqliDb\MysqliDb.php";
 require_once "..\setters.php";
 require_once "..\getters.php";
 require_once "..\CourseProcessor.php";
+require_once "downloader/downloader.php";
 
 
 $configuration = [
@@ -22,7 +23,13 @@ $app = new \Slim\App($c);
 
 $app->get('/test', function($request, $response, $args){
     //$course = Getters::GetCourseEpisodes(782118657);
-    $data = Getters::GetCourse(640346588);
+    //$data = Getters::GetCourse(640346588);
+    /*$downloader = new Downloader();
+    $downloader->Download(
+        "https://udso-a.akamaihd.net/3695997568001/3695997568001_4762494644001_3752552069001.mp4?pubId=3695997568001&videoId=3752552069001",
+        "C:\Users\Administrator\Downloads",
+        "1",
+        "Livestream Lecture");*/
     return formatResponse($response, 'success', '', $data); 
 });
 
