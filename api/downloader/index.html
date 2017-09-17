@@ -42,7 +42,7 @@
                                 <th>#</th>
                                 <th>Name</th>
                                 <th>Size</th>
-                                <th>Progress</th>
+                                <th>Downloaded</th>
                                 <th>Status</th>
                             </tr>
                         </thead>
@@ -51,7 +51,7 @@
                                 <td ng-bind="$index"></td>
                                 <td ng-bind="attachment.title"></td>
                                 <td ng-bind="attachment.size | bytes"></td>
-                                <td ng-bind="attachment.progress"></td>
+                                <td ng-bind="attachment.downloaded | bytes"></td>
                                 <td ng-bind="attachment.status"></td>
                             </tr>
                         </tbody>
@@ -63,7 +63,7 @@
                                 <th>#</th>
                                 <th>Name</th>
                                 <th>Size</th>
-                                <th>Progress</th>
+                                <th>Downloaded</th>
                                 <th>Status</th>
                             </tr>
                         </thead>
@@ -72,7 +72,7 @@
                                 <td ng-bind="episode.number"></td>
                                 <td ng-bind="episode.title"></td>
                                 <td ng-bind="episode.size | bytes"></td>
-                                <td ng-bind="episode.progress"></td>
+                                <td ng-bind="episode.downloaded | bytes"></td>
                                 <td ng-bind="episode.status"></td>
                             </tr>
                         </tbody>

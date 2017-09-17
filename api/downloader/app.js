@@ -1,6 +1,6 @@
 angular.module('app', [])
 
-.controller('appController', function($scope, $timeout, coursesService){
+.controller('appController', function($scope, $timeout, $q, coursesService){
     let self = this;
     
     self.messages = new MessageManager($timeout);
@@ -15,14 +15,18 @@ angular.module('app', [])
     self.reset = reset;
     self.startDownload = startDownload;
 
-    function startDownload(){
-        /*for(let i = 0; i < self.course.episodes.length; i++){
-            let episode = self.course.episodes[i];
-        }*/
+    async function startDownload(){
         let path = self.course.relativePath;
         let fileName = self.course.episodes[0].fileName;
         let url = self.course.episodes[0].videoUrl;
-        coursesService.downloadEpisode(path, fileName, url).then(handleSuccess, handleFailure);
+
+        $fileDownload = new FileDownload(self.course.episodes[0], $q, $scope, $timeout, coursesService, self.messages);
+        await $fileDownload.startDownload(url, path, fileName);
+        console.log('holy shit done');
+        /*for(let i = 0; i < self.course.episodes.length; i++){
+            let episode = self.course.episodes[i];
+        }*/
+        //coursesService.downloadEpisode(path, fileName, url).then(handleSuccess, handleFailure);
     }
 
     function handleDownloadInitSuccess(result){
@@ -31,6 +35,12 @@ angular.module('app', [])
 
     function startMonitorDownloadProgress(id){
         $timeout()
+    }
+
+    function progressMonitorHandler(totalSize, downloaded){
+        if(totalSize == downloaded){
+            console.log('done');
+        }
     }
 
     function reset(){
@@ -63,6 +73,7 @@ angular.module('app', [])
 
     self.getCourseDetails = getCourseDetails;
     self.downloadEpisode = downloadEpisode;
+    self.getProgress = getProgress;
 
     function getCourseDetails(id){
         return $http.get(`${self.base}api/course/${id}/details`);
@@ -70,6 +81,10 @@ angular.module('app', [])
 
     function downloadEpisode(path, filename, url){
         return $http.post('download.php', {path: path, filename: filename, url:url})
+    }
+
+    function getProgress(id){
+        return $http.get(`${self.base}api//downloads/${id}/progress`);
     }
 })
 

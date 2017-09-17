@@ -27,5 +27,5 @@ ob_end_flush();
 ob_flush();
 flush();
 
+$downloader->Download($source, $destination, $name);
 return;
-//$downloader->Download($source, $destination, $name);

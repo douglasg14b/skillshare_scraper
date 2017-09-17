@@ -33,8 +33,11 @@ $app->get('/test', function($request, $response, $args){
     return formatResponse($response, 'success', '', $data); 
 });
 
-$app->get('/episode/{episodeId}/progress', function($request, $response, $args){
-    return formatResponse($response, 'success', 'success'); 
+$app->get('/downloads/{id}/progress', function($request, $response, $args){
+    $id = $args['id'];
+    $getter = new Getters();
+    $data = $getter->Get('download_progress', ['id' => $id], ['total_size as totalSize','downloaded']);
+    return formatResponse($response, 'success', 'success', $data[0]); 
 });
 
 $app->get('/course/{courseId}/details', function($request, $response, $args){

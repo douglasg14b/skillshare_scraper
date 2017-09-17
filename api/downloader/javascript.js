@@ -1,8 +1,44 @@
 
 class FileDownload {
-    constructor(file){
-        $this.file = file;
+    constructor(file, $q, $scope, $timeout, coursesService, messages){
+        this.file = file;
+        this.$q = $q;
+        this.coursesService = coursesService;
+        this.messages = messages;
+        this.$scope = $scope;
+        this.$timeout = $timeout;
     }
+
+    async startDownload(url, path, fileName){
+        this.deferred = this.$q.defer();
+
+        this.coursesService.downloadEpisode(path, fileName, url).then(
+          (result) => { this.handleDownloadInitSuccess(result) });
+
+        return this.deferred.promise;
+    }
+
+    monitorProgress(){
+        this.coursesService.getProgress(this.progressId).then((result) => {this.handleProgressSuccess(result)});
+    }
+
+    handleDownloadInitSuccess(result){
+        this.progressId = result.data.progressId;
+        this.monitorProgress();
+    }
+
+    handleProgressSuccess(result){
+        let data = result.data.data;
+        this.file.downloaded = data.downloaded;
+
+        if(data.downloaded < data.totalSize){
+           this.$timeout(() => { this.monitorProgress(); }, 1000);
+        } else {
+          this.deferred.resolve();
+        }
+    }
+
+
 }
 
 

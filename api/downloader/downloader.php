@@ -57,7 +57,7 @@ class Downloader {
     private function ReportProgress($bytesRead, $done = false){
         $now = round(microtime(true) * 1000);
         if($now - $this->lastReported > 500 || $done){
-            $this->setter->updateRows(['downloaded' => $bytesRead], 'id', 'download_progress', $this->progressId);
+            $this->setter->updateRow($this->progressId, 'id', 'download_progress', ['downloaded' => $bytesRead]);
             $this->lastReported = round(microtime(true) * 1000);
         }
     }
