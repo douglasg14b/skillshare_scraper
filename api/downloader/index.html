@@ -1,10 +1,84 @@
 <!DOCTYPE html>
 <html style="height: 100%; margin: 0;">
     <head>
-        <script type="text/javascript" src="../assets/jquery/jquery-3.2.1.js"></script>
+        <meta charset="UTF-8">
+
+        <script type="text/javascript" src="../../assets/jquery/jquery-3.2.1.js"></script>
+        <script type="text/javascript" src="../../assets/semantic-ui/dist/semantic.min.js"></script>
+        <link rel="stylesheet" type="text/css" href="../../assets/semantic-ui/dist/semantic.min.css">
+        <script type="text/javascript" src="../../assets/angular/angular.min.js"></script>
+        <link rel="stylesheet" type="text/css" href="style.css">
         <script type="text/javascript" src="javascript.js"></script>
+
+        <script type="text/javascript" src="app.js"></script>
     </head>
-    <body style="height: 100%; margin: 0;">
-        <iframe style="height:90%; width:90%;"></iframe>
+    <body ng-app="app" ng-controller="appController as vm" style="height: 100%; margin: 0;">
+        <div class="ui container">
+            <div style="margin-top: 5em;"></div>
+            <div ng-if="vm.messages.errors.length > 0" class="ui error message">
+                <span ng-repeat="message in vm.messages.errors" ng-bind="message.message"></span>
+            </div>               
+            <div class="ui segment">
+                <form class="ui form">
+                    <div class="two fields">
+                        <div class="field">
+                            <div class="ui input">
+                                <input ng-model="vm.courseId" id="course_id_input" type="number" name="courseId">
+                            </div>
+                        </div>
+                        <div class="field">
+                            <div ng-if="!vm.hasCourseDetails" ng-click="vm.getDetails()" class="ui submit button">Get Details</div>
+                            <div ng-if="vm.hasCourseDetails" class="ui disabled submit button">Get Details</div>
+                            <div ng-if="vm.hasCourseDetails" ng-click="vm.reset()" class="ui orange button">Clear</div>
+                            <div ng-if="vm.hasCourseDetails" ng-click="vm.startDownload()" class="ui green button">Download</div>
+                        </div>
+                    </div>
+                </form>
+                <div ng-if="vm.hasCourseDetails" class="ui segment">
+                    <h3 class="ui centered header" ng-bind="vm.course.name"></h3>
+                    <table ng-if="vm.course.project.hasAttachments" class="ui small collapsing center aligned celled table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Name</th>
+                                <th>Size</th>
+                                <th>Progress</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr ng-repeat="attachment in vm.course.project.attachments">
+                                <td ng-bind="$index"></td>
+                                <td ng-bind="attachment.title"></td>
+                                <td ng-bind="attachment.size | bytes"></td>
+                                <td ng-bind="attachment.progress"></td>
+                                <td ng-bind="attachment.status"></td>
+                            </tr>
+                        </tbody>
+                    </table>                    
+                    <h4 class="ui header">{{vm.course.episodes.length}} Episodes</h4>
+                    <table class="ui small collapsing center aligned celled table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Name</th>
+                                <th>Size</th>
+                                <th>Progress</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr ng-repeat="episode in vm.course.episodes">
+                                <td ng-bind="episode.number"></td>
+                                <td ng-bind="episode.title"></td>
+                                <td ng-bind="episode.size | bytes"></td>
+                                <td ng-bind="episode.progress"></td>
+                                <td ng-bind="episode.status"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>  
+            </div>
+        </div>
     </body>
 </html>

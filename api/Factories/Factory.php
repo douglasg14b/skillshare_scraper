@@ -6,6 +6,7 @@ require_once '/../Models/Episode.php';
 require_once '/../Models/Author.php';
 require_once '/../Models/Project.php';
 require_once '/../Models/Tag.php';
+require_once '/../helper.php';
 
 /**
  * Description of Factory

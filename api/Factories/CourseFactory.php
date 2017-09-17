@@ -7,7 +7,7 @@ class CourseFactory extends Factory {
         'id' => ['courses', 'course_id'],
         'name' => ['courses', 'name'],
         'link' => ['courses', 'link'],
-        'path' => ['courses', 'download_path'],
+        'folderPath' => ['courses', 'download_path'],
         'students' => ['courses_meta', 'students'],
         'totalRatings' => ['courses_meta', 'reviews_total'],
         'positiveRatings' => ['courses_meta', 'reviews_positive'],
@@ -27,6 +27,10 @@ class CourseFactory extends Factory {
     
     public static function RenderFromDb($values){
         $class = self::BuildClassFromArray('Course', $values);
+        $class->SortTags(); //Properly sorts tags
+        $class->SortEpisodes();
+        $class->SanitizeName();
+        $class->GeneratePathChunks();
         return $class;
     }
 

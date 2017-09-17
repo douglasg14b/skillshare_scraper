@@ -7,7 +7,7 @@ require_once "..\assets\MysqliDb\MysqliDb.php";
 require_once "..\setters.php";
 require_once "..\getters.php";
 require_once "..\CourseProcessor.php";
-require_once "downloader/downloader.php";
+require_once "downloader/Downloader.php";
 
 
 $configuration = [
@@ -22,15 +22,28 @@ $c = new \Slim\Container($configuration);
 $app = new \Slim\App($c);
 
 $app->get('/test', function($request, $response, $args){
-    //$course = Getters::GetCourseEpisodes(782118657);
-    //$data = Getters::GetCourse(640346588);
-    /*$downloader = new Downloader();
-    $downloader->Download(
+    $data = Getters::GetCourse(640346588);
+    $data->SortTags();
+    //$downloader = new Downloader();
+    /*$downloader->Download(
         "https://udso-a.akamaihd.net/3695997568001/3695997568001_4762494644001_3752552069001.mp4?pubId=3695997568001&videoId=3752552069001",
         "C:\Users\Administrator\Downloads",
         "1",
         "Livestream Lecture");*/
     return formatResponse($response, 'success', '', $data); 
+});
+
+$app->get('/episode/{episodeId}/progress', function($request, $response, $args){
+    return formatResponse($response, 'success', 'success'); 
+});
+
+$app->get('/course/{courseId}/details', function($request, $response, $args){
+    $id = $args['courseId'];
+    if(Setters::rowExists("courses", ["course_id" => $id])){
+        $data = Getters::GetCourse($id);
+        return formatResponse($response, 'success', '', $data); 
+    }
+    return formatNotFoundResponse($response, 'Course not found');
 });
 
 $app->get('/delay', function($request, $response, $args){
@@ -150,7 +163,7 @@ function formatResponse($response, $status, $message, $data = []){
         "status" => $status,
         "message" => $message,
         "data" => $data
-    ], 200, JSON_NUMERIC_CHECK);
+    ], 200, JSON_NUMERIC_CHECK | JSON_PRETTY_PRINT);
     
     return $newResponse;
 }

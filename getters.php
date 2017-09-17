@@ -29,6 +29,9 @@ class Getters {
 
     public static function GetCourse($courseId){
         $courseData = self::GetCourseData($courseId);
+        if(!$courseData){
+            return false;
+        }
         $courseId = $courseData['id'];
 
         $courseData['author'] = self::GetAuthor($courseData['authorId']);
@@ -115,7 +118,7 @@ class Getters {
         return $tags;
     }
 
-    
+
     /* Prevents creating more DB connectons than needed */
     private static function getDBInstance(){
         $db = MysqliDb::getInstance();

@@ -29,6 +29,8 @@ class EpisodeFactory extends Factory {
     
     public static function RenderFromDb($values){
         $class = self::BuildClassFromArray('Episode', $values);
+        $class->SanitizeName();
+        $class->GenerateFileName();
         return $class;
     }
 

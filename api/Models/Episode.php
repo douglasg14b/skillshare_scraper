@@ -1,5 +1,7 @@
 <?php
 
+include_once '/../helper.php';
+
 class Episode {
 
     var $episodeId;
@@ -16,6 +18,18 @@ class Episode {
     var $duration;
     var $avgBitrate;
     var $hasSource;
+
+    var $sanitizedName;
+    var $fileName;
+
+    public function SanitizeName(){
+		$this->sanitizedName = Filename($this->title);
+	}
+
+    public function GenerateFileName(){
+        $number = str_pad($this->number, 3, '0', STR_PAD_LEFT);
+        $this->fileName = $number.' '.$this->sanitizedName.'.mp4';
+    }
 
     //Custom JSON serilization to ignore navigation properties
     public function GetAsJSON(){

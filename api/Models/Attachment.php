@@ -2,6 +2,7 @@
 
 class Attachment {
 
+    var $id;
     var $projectId;
     var $title;
     var $link;
