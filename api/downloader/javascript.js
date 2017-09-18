@@ -29,7 +29,7 @@ class FileDownload {
 
     handleProgressSuccess(result){
         let data = result.data.data;
-        this.file.downloaded = data.downloaded;
+        this.file.downloadedSize = data.downloaded;
 
         if(data.downloaded < data.totalSize){
            this.$timeout(() => { this.monitorProgress(); }, 1000);

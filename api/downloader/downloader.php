@@ -6,10 +6,11 @@ class Downloader {
     function __construct($source){
         $this->lastReported = round(microtime(true) * 1000);
         $this->setter = new Setters();
-        $totalSize = curl_get_file_size($source);
-        $this->SetProgressTotalSize($totalSize);
+        $this->totalSize = curl_get_file_size($source);
+        $this->SetProgressTotalSize($this->totalSize);
     }
 
+    var $totalSize;
     var $progressId;
     var $setter;
     var $lastReported; //Time when status was last reported, to minimize heavy DB impact
@@ -19,7 +20,7 @@ class Downloader {
         //ini_set('max_execution_time', 300);
         $fullPath = $destination.'/'.$name;
         //ini_set('memory_limit', '4095M'); // 4 GBs minus 1 MB
-        $chunkSize = 1024*1024*10; //10 MiB
+        $chunkSize = $this->GetChunkSize($this->totalSize);
 
         $this->EnsureDirExists($destination);
         $this->RemoveFileIfExists($fullPath);        
@@ -43,6 +44,22 @@ class Downloader {
         if ($destiantionFile) {
             fclose($destiantionFile);
         }      
+    }
+
+    private function GetChunkSize($fileSize){
+        if($fileSize < 1024){ //<1KB
+            return 512;
+        } else if($fileSize < 1024 * 8){ // <8KB
+            return 1024 * 4; //4KB
+        } else if($fileSize < 1024 * 1024){ // <1MB
+            return 1024 * 8; //8KB chunks for everything under 1MB
+        } else if($fileSize < 1024 * 1024 * 4){ //4MB
+            return 1024 * 1024 * 2; //2MB
+        } else if($fileSize < 1024 * 1024 * 8){ //8MB
+            return 1024 * 1024 * 4; //4MB
+        } else {
+            return 1024 * 1024 * 8; //8MB
+        }
     }
 
     private function RemoveFileIfExists($path){

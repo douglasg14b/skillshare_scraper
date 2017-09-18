@@ -72,6 +72,10 @@
                             <div ng-if="!vm.downloading" class="ui disabled red button">Stop</div>
                             <div ng-if="vm.downloading" ng-click="vm.stop()" class="ui red button">Stop</div>
                         </div>
+                        <div class="inline field">
+                            <label>Parallelism</label>
+                            <input type="number" ng-model="vm.parallelism">
+                        </div>
                     </div>
                 </form>
                 <div ng-if="vm.hasCourseDetails" class="ui segment">
@@ -97,9 +101,12 @@
                                 <td ng-bind="$index"></td>
                                 <td ng-bind="attachment.title"></td>
                                 <td ng-bind="attachment.size | bytes"></td>
-                                <td ng-bind="attachment.downloaded | bytes"></td>
+                                <td ng-bind="attachment.downloadedSize | bytes"></td>
                                 <td ng-bind="attachment.status"></td>
-                                <td><div ng-click="vm.unassignAttachment(attachment.id)" class="ui tiny yellow button">Unassign</div></td>
+                                <td>
+                                    <div ng-if="attachment.status != 'Done'" ng-click="vm.unassignAttachment(attachment.id)" class="ui tiny yellow button">Unassign</div>
+                                    <div ng-if="attachment.status == 'Done'" class="ui tiny disabled yellow button">Unassign</div>
+                                </td>
                             </tr>
                         </tbody>
                     </table>                    
@@ -118,14 +125,17 @@
                         </thead>
                         <tbody>
                             <tr ng-class="{'warning': episode.status == 'Downloading', 'positive': episode.status == 'Done'}" 
-                                ng-repeat="episode in vm.course.episodes">
+                                ng-repeat="episode in vm.course.episodes | orderBy: 'number'">
                                 <td ng-bind="episode.number"></td>
                                 <td ng-bind="episode.title"></td>
                                 <td ng-bind="episode.episodeId"></td>
                                 <td ng-bind="episode.size | bytes"></td>
-                                <td ng-bind="episode.downloaded | bytes"></td>
+                                <td ng-bind="episode.downloadedSize | bytes"></td>
                                 <td ng-bind="episode.status"></td>
-                                <td><div ng-click="vm.unassignEpisode(episode.episodeId)" class="ui tiny yellow button">Unassign</div></td>
+                                <td>
+                                    <div ng-if="episode.status != 'Done'" ng-click="vm.unassignEpisode(episode.episodeId)" class="ui tiny yellow button">Unassign</div>
+                                    <div ng-if="episode.status == 'Done'" class="ui tiny disabled yellow button">Unassign</div>
+                                </td>
                             </tr>
                         </tbody>
                     </table>

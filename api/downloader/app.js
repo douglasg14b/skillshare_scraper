@@ -14,6 +14,7 @@ angular.module('app', [])
 
     self.courseId; //Input course Id, only used for single course
     self.course; //Course details
+    self.parallelism = 2; //Number of parallel downloads
 
     self.getSingleCourseDetails = getSingleCourseDetails; //only used for single course
     self.reset = reset; //only used for single course
@@ -65,10 +66,22 @@ angular.module('app', [])
                 if(self.course.project.hasAttachments){
                     await downloadAttachments();
                 }
-                await downloadEpisodes();
-                await coursesService.setCourseDownloaded(self.course.id);
+                prepEpisodes();
 
-                self.coursesDownloaded ++;
+                //Should kick off multiple 'workers'
+                let waiters = [];
+                for(let i = 0; i < self.parallelism; i++){
+                    waiters.push(downloadEpisodes());
+                }
+
+                for(let i = 0; i < waiters.length; i++){
+                    await waiters[i];
+                }
+
+                if(!self.halted){
+                    await coursesService.setCourseDownloaded(self.course.id);
+                    self.coursesDownloaded ++;
+                }
             }
         } else if(self.pullSingleClass){
             if(self.course.project.hasAttachments){
@@ -81,37 +94,79 @@ angular.module('app', [])
         self.downloading = false;
     }
 
-    async function downloadEpisodes(){
+    //Sets variables for local downlaod workers
+    async function prepEpisodes(){
         for(let i = 0; i < self.course.episodes.length; i++){
+            self.course.episodes[i].assigned = false;
+            self.course.episodes[i].downloaded = false;
+        }
+        
+        //Used to prioritize larger files first
+        self.course.episodes.sort(function(a,b){
+            return b.size - a.size;
+        })
+
+    }
+
+    async function getNextEpisode(){
+        for(let i = 0; i < self.course.episodes.length; i++){
+            let episode = self.course.episodes[i];
+            if(episode.downloaded == false && episode.assigned == false){
+                episode.assigned = true;
+                return episode;
+            }
+        }
+        return false;
+    }
+
+    async function downloadEpisodes(){
+        let next = await getNextEpisode();
+        while(next && !self.halted){
+            await downloadEpisode(next);
+            next = await getNextEpisode();
+        }
+        /*for(let i = 0; i < self.course.episodes.length;){
             if(self.halted){
                 break;
             }
 
-            let episode = self.course.episodes[i];
+            let ep1 = downloadEpisode(self.course.episodes[i]);           
+            if(i + 1 < self.course.episodes.length){
+                let ep2 = downloadEpisode(self.course.episodes[i+1]);
+                let results = [await ep1, await ep2];
+                i +=2;
+            } else {
+                let result = await ep1;
+                i++;
+            }            
+        }*/
+    }
 
-            let path = self.course.relativePath;
-            let fileName = episode.fileName;
-            let url = episode.videoUrl;
+    async function downloadEpisode(episode){
+        let path = self.course.relativePath;
+        let fileName = episode.fileName;
+        let url = episode.videoUrl;
 
-            let statusResult = await coursesService.getEpisodeActivity(episode.episodeId);
-            let status = statusResult.data.data;
-            if(status.downloaded == 1){
-                episode.status = 'Done';
-                continue;
-            } else if(status.assigned == 1){
-                episode.status = 'Assigned';
-                continue;
-            }
-
-            $fileDownload = new FileDownload(episode, $q, $scope, $timeout, coursesService, self.messages);
-            episode.status = 'Downloading';
-            coursesService.setEpisodeAssigned(episode.episodeId);
-            await $fileDownload.startDownload(url, path, fileName);
-            coursesService.setEpisodeDownloaded(episode.episodeId, path+fileName);
+        let statusResult = await coursesService.getEpisodeActivity(episode.episodeId);
+        let status = statusResult.data.data;
+        if(status.downloaded == 1){
             episode.status = 'Done';
-            self.episodesDownloaded ++;
-            self.sizeDownloaded += episode.size;
-        }        
+            episode.downloaded = true;
+            return;
+        } else if(status.assigned == 1){
+            episode.status = 'Assigned';
+            return;
+        }
+
+        $fileDownload = new FileDownload(episode, $q, $scope, $timeout, coursesService, self.messages);
+        episode.status = 'Downloading';
+        coursesService.setEpisodeAssigned(episode.episodeId);
+        await $fileDownload.startDownload(url, path, fileName);
+        coursesService.setEpisodeDownloaded(episode.episodeId, path+fileName);
+        episode.status = 'Done';
+        episode.downloaded = true;
+        self.episodesDownloaded ++;
+        self.sizeDownloaded += episode.size;
     }
 
     async function downloadAttachments(){
