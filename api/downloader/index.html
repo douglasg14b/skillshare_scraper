@@ -30,7 +30,8 @@
                             <div ng-if="!vm.hasCourseDetails" ng-click="vm.getDetails()" class="ui submit button">Get Details</div>
                             <div ng-if="vm.hasCourseDetails" class="ui disabled submit button">Get Details</div>
                             <div ng-if="vm.hasCourseDetails" ng-click="vm.reset()" class="ui orange button">Clear</div>
-                            <div ng-if="vm.hasCourseDetails" ng-click="vm.startDownload()" class="ui green button">Download</div>
+                            <div ng-if="vm.hasCourseDetails && !vm.downloading" ng-click="vm.startDownload()" class="ui green button">Download</div>
+                            <div ng-if="vm.hasCourseDetails && vm.downloading" class="ui disabled green button">Download</div>
                         </div>
                     </div>
                 </form>
@@ -47,7 +48,9 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr ng-repeat="attachment in vm.course.project.attachments">
+                            <tr ng-class="{'warning': attachment.status == 'Downloading', 'positive': attachment.status == 'Done'}" 
+                                ng-repeat="attachment in vm.course.project.attachments">
+
                                 <td ng-bind="$index"></td>
                                 <td ng-bind="attachment.title"></td>
                                 <td ng-bind="attachment.size | bytes"></td>
@@ -68,7 +71,8 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr ng-repeat="episode in vm.course.episodes">
+                            <tr ng-class="{'warning': episode.status == 'Downloading', 'positive': episode.status == 'Done'}" 
+                                ng-repeat="episode in vm.course.episodes">
                                 <td ng-bind="episode.number"></td>
                                 <td ng-bind="episode.title"></td>
                                 <td ng-bind="episode.size | bytes"></td>

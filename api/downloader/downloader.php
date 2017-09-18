@@ -16,12 +16,12 @@ class Downloader {
     
     public function Download($source, $destination, $name){
         //ini_set('max_execution_time', 300);
-
-        $this->EnsureDirExists($destination);        
-
         $fullPath = $destination.'/'.$name;
         //ini_set('memory_limit', '4095M'); // 4 GBs minus 1 MB
         $chunkSize = 1024*1024; //1 MiB
+
+        $this->EnsureDirExists($destination);
+        $this->RemoveFileIfExists($fullPath);        
 
         $file = fopen($source, 'rb');
         if($file){
@@ -42,6 +42,12 @@ class Downloader {
         if ($destiantionFile) {
             fclose($destiantionFile);
         }      
+    }
+
+    private function RemoveFileIfExists($path){
+        if(file_exists($path)){
+            unlink($path);
+        }
     }
 
     private function EnsureDirExists($path){       

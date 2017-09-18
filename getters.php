@@ -58,10 +58,7 @@ class Getters {
         $db->join($sq1, 'episodes.course_id = courses.course_id', 'INNER');
         $db->join($sq2, 'attachments.course_id = courses.course_id', 'INNER');
 
-        $db->where('downloaded', false);
-        if(defined($courseId)){
-            $db->where('course_id', $courseId);
-        }
+        $db->where('courses.course_id', $courseId);
         $courseData = $db->get('courses', 1, $columns);
         return $courseData[0];
     }

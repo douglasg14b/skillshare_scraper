@@ -33,6 +33,96 @@ $app->get('/test', function($request, $response, $args){
     return formatResponse($response, 'success', '', $data); 
 });
 
+//Gets the downloaded status of the episode
+$app->get('/episode/{id}/downloaded', function($request, $response, $args){
+    $id = $args['id'];
+
+    $getter = new Getters();
+    $downloaded = $getter->GetValue('download_queue_episodes', ['episode_id' => $id], 'downloaded');
+
+    return formatResponse($response, 'success', 'success', $downloaded);
+});
+
+//Gets the downloaded status of the attachment
+$app->get('/attachment/{id}/downloaded', function($request, $response, $args){
+    $id = $args['id'];
+
+    $getter = new Getters();
+    $downloaded = $getter->GetValue('download_queue_attachments', ['attachment_id' => $id], 'downloaded');
+
+    return formatResponse($response, 'success', 'success', $downloaded);
+});
+
+//Sets the episode as assigned in the queue
+$app->post('/episode/{id}/assigned', function($request, $response, $args){
+    $id = $args['id'];
+
+    $setter = new Setters();
+    $setter->updateRow($id, 'episode_id', 'download_queue_episodes', ['assigned' => true]);
+
+    return formatResponse($response, 'success', 'success');
+});
+
+//Sets the attachment as assigned in the queue
+$app->post('/attachment/{id}/assigned', function($request, $response, $args){
+    $id = $args['id'];
+
+    $setter = new Setters();
+    $setter->updateRow($id, 'attachment_id', 'download_queue_attachments', ['assigned' => true]);
+
+    return formatResponse($response, 'success', 'success');
+});
+
+//Sets the episode as downloaded in the queue
+$app->post('/episode/{id}/downloaded', function($request, $response, $args){
+    $parsed = $request->getParsedBody();
+    $path = $parsed['path'];
+    $id = $args['id'];
+    if(!$path){
+        return formatBadRequestResponse($request, 'No path supplied');
+    }
+    $setter = new Setters();
+    $setter->updateRow($id, 'episode_id', 'download_queue_episodes', ['downloaded' => true, 'path' => $path]);
+
+    return formatResponse($response, 'success', 'success');
+});
+
+//Sets the attachment as downloaded in the queue
+$app->post('/attachment/{id}/downloaded', function($request, $response, $args){
+    $parsed = $request->getParsedBody();
+    $path = $parsed['path'];
+    $id = $args['id'];
+    if(!$path){
+        return formatBadRequestResponse($request, 'No path supplied');
+    }
+    $setter = new Setters();
+    $setter->updateRow($id, 'attachment_id', 'download_queue_attachments', ['downloaded' => true, 'path' => $path]);
+
+    return formatResponse($response, 'success', 'success');
+});
+
+//Sets the course as downlaoded and sets the metadata
+$app->post('/course/{courseId}/downloaded', function($request, $response, $args){
+    $id = $id = $args['courseId'];
+
+    $getter = new Getters();
+    $course = $getter->GetCourse($id);
+    $partialPath = $course->relativePath;
+    
+    $setter = new Setters();
+    $setter->updateRow($id, 'course_id', 'courses', ['downloaded' => true, 'path' => $partialPath]);
+    $course = $getter->GetCourse($id);
+
+
+    $courseMeta = json_encode($course, JSON_NUMERIC_CHECK | JSON_PRETTY_PRINT);
+    $destiantionFile = fopen(BASE_DOWNLOAD_PATH.$partialPath.'meta.json', 'wb');
+    fwrite($destiantionFile, $courseMeta);
+    fclose($destiantionFile);
+
+
+    return formatResponse($response, 'success', 'success');
+});
+
 $app->get('/downloads/{id}/progress', function($request, $response, $args){
     $id = $args['id'];
     $getter = new Getters();

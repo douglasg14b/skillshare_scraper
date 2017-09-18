@@ -8,7 +8,7 @@ class Course {
     var $name;
     var $description;
     var $link;
-    var $relativePath;
+    var $path;
     var $pathChunks = []; //Array of path chunks
 
     var $students;

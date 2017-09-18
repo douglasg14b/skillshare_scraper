@@ -16,31 +16,59 @@ angular.module('app', [])
     self.startDownload = startDownload;
 
     async function startDownload(){
-        let path = self.course.relativePath;
-        let fileName = self.course.episodes[0].fileName;
-        let url = self.course.episodes[0].videoUrl;
+        self.downloading = true;
 
-        $fileDownload = new FileDownload(self.course.episodes[0], $q, $scope, $timeout, coursesService, self.messages);
-        await $fileDownload.startDownload(url, path, fileName);
-        console.log('holy shit done');
-        /*for(let i = 0; i < self.course.episodes.length; i++){
-            let episode = self.course.episodes[i];
-        }*/
-        //coursesService.downloadEpisode(path, fileName, url).then(handleSuccess, handleFailure);
-    }
-
-    function handleDownloadInitSuccess(result){
-        monitorDownloadProgress(result.progressId);
-    }
-
-    function startMonitorDownloadProgress(id){
-        $timeout()
-    }
-
-    function progressMonitorHandler(totalSize, downloaded){
-        if(totalSize == downloaded){
-            console.log('done');
+        if(self.course.project.hasAttachments){
+            await downloadAttachments();
         }
+        await downloadEpisodes();
+        await coursesService.setCourseDownloaded(self.course.id);
+
+        self.downloading = false;
+    }
+
+    async function downloadEpisodes(){
+        for(let i = 0; i < self.course.episodes.length; i++){
+            let episode = self.course.episodes[i];
+
+            let path = self.course.relativePath;
+            let fileName = episode.fileName;
+            let url = episode.videoUrl;
+
+            let downloadedStatus = await coursesService.getEpisodeDownloaded(episode.episodeId);
+            if(downloadedStatus.data.data == 1){
+                episode.status = 'Done';
+                continue;
+            }            
+
+            $fileDownload = new FileDownload(episode, $q, $scope, $timeout, coursesService, self.messages);
+            episode.status = 'Downloading';
+            await $fileDownload.startDownload(url, path, fileName);
+            coursesService.setEpisodeDownloaded(episode.episodeId, path+fileName);
+            episode.status = 'Done';
+        }        
+    }
+
+    async function downloadAttachments(){
+        for(let i = 0; i < self.course.project.attachments.length; i++){
+            let attachment = self.course.project.attachments[i];
+
+            let path = self.course.relativePath;
+            let fileName = attachment.title;
+            let url = attachment.link;
+
+            let downloadedStatus = await coursesService.getAttachmentDownloaded(attachment.id);
+            if(downloadedStatus.data.data == 1){
+                attachment.status = 'Done';
+                continue;
+            }
+
+            $fileDownload = new FileDownload(attachment, $q, $scope, $timeout, coursesService, self.messages);
+            attachment.status = 'Downloading';
+            await $fileDownload.startDownload(url, path, fileName);
+            coursesService.setAttachmentDownloaded(attachment.id, path+fileName);
+            attachment.status = 'Done';
+        }        
     }
 
     function reset(){
@@ -74,6 +102,14 @@ angular.module('app', [])
     self.getCourseDetails = getCourseDetails;
     self.downloadEpisode = downloadEpisode;
     self.getProgress = getProgress;
+    self.getEpisodeDownloaded = getEpisodeDownloaded;
+    self.getAttachmentDownloaded = getAttachmentDownloaded;
+
+    self.setCourseDownloaded = setCourseDownloaded;
+    self.setEpisodeAssigned = setEpisodeAssigned;
+    self.setAttachmentAssigned = setAttachmentAssigned;
+    self.setEpisodeDownloaded = setEpisodeDownloaded;
+    self.setAttachmentDownloaded = setAttachmentDownloaded;
 
     function getCourseDetails(id){
         return $http.get(`${self.base}api/course/${id}/details`);
@@ -84,8 +120,36 @@ angular.module('app', [])
     }
 
     function getProgress(id){
-        return $http.get(`${self.base}api//downloads/${id}/progress`);
+        return $http.get(`${self.base}api/downloads/${id}/progress`);
     }
+
+    function getEpisodeDownloaded(id){
+        return $http.get(`${self.base}api/episode/${id}/downloaded`)
+    }
+
+    function getAttachmentDownloaded(id){
+        return $http.get(`${self.base}api/attachment/${id}/downloaded`)
+    }  
+
+    function setCourseDownloaded(id){
+        return $http.post(`${self.base}api/course/${id}/downloaded`);
+    }
+
+    function setEpisodeAssigned(id){
+        return $http.post(`${self.base}api/episode/${id}/assigned`, {path: path})
+    }
+
+    function setAttachmentAssigned(id){
+        return $http.post(`${self.base}api/attachment/${id}/assigned`, {path: path})
+    }  
+
+    function setEpisodeDownloaded(id, path){
+        return $http.post(`${self.base}api/episode/${id}/downloaded`, {path: path})
+    }
+
+    function setAttachmentDownloaded(id, path){
+        return $http.post(`${self.base}api/attachment/${id}/downloaded`, {path: path})
+    }    
 })
 
 
