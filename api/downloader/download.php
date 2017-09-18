@@ -2,7 +2,7 @@
 include_once 'Downloader.php';
 include_once '/../../config.php';
 ignore_user_abort(true);
-set_time_limit(300);
+set_time_limit(3000);
 ob_start();
 
 

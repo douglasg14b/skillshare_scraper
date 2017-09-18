@@ -17,26 +17,68 @@
             <div style="margin-top: 5em;"></div>
             <div ng-if="vm.messages.errors.length > 0" class="ui error message">
                 <span ng-repeat="message in vm.messages.errors" ng-bind="message.message"></span>
-            </div>               
+            </div>
+            <div class="ui segment">
+                <div style="margin: auto; width:70%;"  class="ui mini statistics">
+                    <div style="margin-bottom:0;" class="statistic">
+                        <div class="value">{{vm.coursesDownloaded}}</div>
+                        <div class="label">Courses</div>
+                    </div>
+                    <div style="margin-bottom:0;" class="statistic">
+                        <div class="value">{{vm.episodesDownloaded}}</div>
+                        <div class="label">Episodes</div>
+                    </div>
+                    <div style="margin-bottom:0;" class="statistic">
+                        <div class="value">{{vm.attachmentsDownloaded}}</div>
+                        <div class="label">Attachments</div>
+                    </div>  
+                    <div style="margin-bottom:0;" class="statistic">
+                        <div style="text-transform: none;" class="value">{{vm.sizeDownloaded | bytes}}</div>
+                        <div class="label">Downloaded</div>
+                    </div>
+                    <div style="margin-bottom:0;" class="statistic">
+                        <div style="text-transform: none;" class="value">{{vm.timeElapsed | duration}}</div>
+                        <div class="label">Elapsed</div>
+                    </div>                    
+                </div>
+            </div>
             <div class="ui segment">
                 <form class="ui form">
-                    <div class="two fields">
+                    <div ng-if="!vm.pullSingleClass && !vm.pullManyClasses" class="field">
+                        <div class="ui blue button" ng-click="vm.pullSingleClass = true" >Get Single Class</div>
+                        <div class="ui blue button" ng-click="vm.pullManyClasses = true">Pull All Classes</div>
+                    </div>
+                    <div ng-if="vm.pullSingleClass" class="two fields">
                         <div class="field">
                             <div class="ui input">
-                                <input ng-model="vm.courseId" id="course_id_input" type="number" name="courseId">
+                                <input ng-model="vm.courseId" id="course_id_input" type="number" placeholder="Course Id">
                             </div>
                         </div>
                         <div class="field">
-                            <div ng-if="!vm.hasCourseDetails" ng-click="vm.getDetails()" class="ui submit button">Get Details</div>
+                            <div ng-if="!vm.hasCourseDetails" ng-click="vm.getSingleCourseDetails()" class="ui submit button">Get Details</div>
                             <div ng-if="vm.hasCourseDetails" class="ui disabled submit button">Get Details</div>
                             <div ng-if="vm.hasCourseDetails" ng-click="vm.reset()" class="ui orange button">Clear</div>
                             <div ng-if="vm.hasCourseDetails && !vm.downloading" ng-click="vm.startDownload()" class="ui green button">Download</div>
                             <div ng-if="vm.hasCourseDetails && vm.downloading" class="ui disabled green button">Download</div>
+
+                            <div ng-if="vm.hasCourseDetails && vm.downloading" ng-click="vm.stop()" class="ui red button">Stop</div>
+                        </div>
+                    </div>
+                    <div ng-if="vm.pullManyClasses" class="two fields">
+                        <div class="field">
+                            <div ng-if="!vm.downloading" ng-click="vm.startDownload()" class="ui green button">Start Download</div>
+                            <div ng-if="vm.downloading" class="ui disabled green button">Start Download</div>
+
+                            <div ng-if="!vm.downloading" class="ui disabled red button">Stop</div>
+                            <div ng-if="vm.downloading" ng-click="vm.stop()" class="ui red button">Stop</div>
                         </div>
                     </div>
                 </form>
                 <div ng-if="vm.hasCourseDetails" class="ui segment">
-                    <h3 class="ui centered header" ng-bind="vm.course.name"></h3>
+                    <h3 class="ui centered header">
+                        <span ng-bind="vm.course.name"></span>
+                        <span> ({{vm.course.id}})</span>
+                    </h3>
                     <table ng-if="vm.course.project.hasAttachments" class="ui small collapsing center aligned celled table">
                         <thead>
                             <tr>
@@ -45,6 +87,7 @@
                                 <th>Size</th>
                                 <th>Downloaded</th>
                                 <th>Status</th>
+                                <th>Action</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -56,6 +99,7 @@
                                 <td ng-bind="attachment.size | bytes"></td>
                                 <td ng-bind="attachment.downloaded | bytes"></td>
                                 <td ng-bind="attachment.status"></td>
+                                <td><div ng-click="vm.unassignAttachment(attachment.id)" class="ui tiny yellow button">Unassign</div></td>
                             </tr>
                         </tbody>
                     </table>                    
@@ -65,9 +109,11 @@
                             <tr>
                                 <th>#</th>
                                 <th>Name</th>
+                                <th>Id</th>
                                 <th>Size</th>
                                 <th>Downloaded</th>
                                 <th>Status</th>
+                                <th>Action</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -75,9 +121,11 @@
                                 ng-repeat="episode in vm.course.episodes">
                                 <td ng-bind="episode.number"></td>
                                 <td ng-bind="episode.title"></td>
+                                <td ng-bind="episode.episodeId"></td>
                                 <td ng-bind="episode.size | bytes"></td>
                                 <td ng-bind="episode.downloaded | bytes"></td>
                                 <td ng-bind="episode.status"></td>
+                                <td><div ng-click="vm.unassignEpisode(episode.episodeId)" class="ui tiny yellow button">Unassign</div></td>
                             </tr>
                         </tbody>
                     </table>

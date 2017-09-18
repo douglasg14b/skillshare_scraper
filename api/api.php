@@ -33,24 +33,53 @@ $app->get('/test', function($request, $response, $args){
     return formatResponse($response, 'success', '', $data); 
 });
 
-//Gets the downloaded status of the episode
-$app->get('/episode/{id}/downloaded', function($request, $response, $args){
+//Gets the active status of the episode
+$app->get('/episode/{id}/active', function($request, $response, $args){
     $id = $args['id'];
 
     $getter = new Getters();
     $downloaded = $getter->GetValue('download_queue_episodes', ['episode_id' => $id], 'downloaded');
+    $assigned = $getter->GetValue('download_queue_episodes', ['episode_id' => $id], 'assigned');
+    $data = [
+        'assigned' => $assigned,
+        'downloaded' => $downloaded
+    ];
 
-    return formatResponse($response, 'success', 'success', $downloaded);
+    return formatResponse($response, 'success', 'success', $data);
 });
 
-//Gets the downloaded status of the attachment
-$app->get('/attachment/{id}/downloaded', function($request, $response, $args){
+//Gets the active status of the attachment
+$app->get('/attachment/{id}/active', function($request, $response, $args){
     $id = $args['id'];
 
     $getter = new Getters();
     $downloaded = $getter->GetValue('download_queue_attachments', ['attachment_id' => $id], 'downloaded');
+    $assigned = $getter->GetValue('download_queue_attachments', ['attachment_id' => $id], 'assigned');
+    $data = [
+        'assigned' => $assigned,
+        'downloaded' => $downloaded
+    ];
 
-    return formatResponse($response, 'success', 'success', $downloaded);
+    return formatResponse($response, 'success', 'success', $data);
+});
+//Sets the episode as unassign in the queue
+$app->post('/episode/{id}/unassign', function($request, $response, $args){
+    $id = $args['id'];
+
+    $setter = new Setters();
+    $setter->updateRow($id, 'episode_id', 'download_queue_episodes', ['assigned' => false]);
+
+    return formatResponse($response, 'success', 'success');
+});
+
+//Sets the attachment as unassign in the queue
+$app->post('/attachment/{id}/unassign', function($request, $response, $args){
+    $id = $args['id'];
+
+    $setter = new Setters();
+    $setter->updateRow($id, 'attachment_id', 'download_queue_attachments', ['assigned' => false]);
+
+    return formatResponse($response, 'success', 'success');
 });
 
 //Sets the episode as assigned in the queue
@@ -108,7 +137,7 @@ $app->post('/course/{courseId}/downloaded', function($request, $response, $args)
     $getter = new Getters();
     $course = $getter->GetCourse($id);
     $partialPath = $course->relativePath;
-    
+
     $setter = new Setters();
     $setter->updateRow($id, 'course_id', 'courses', ['downloaded' => true, 'path' => $partialPath]);
     $course = $getter->GetCourse($id);
@@ -145,12 +174,15 @@ $app->get('/delay', function($request, $response, $args){
 });
 
 //Adds a new course and it's link to the DB
-$app->get('/next', function($request, $response, $args){
-    $data = Getters::Get('courses', ['downloaded_meta' => false, 'assigned' => false], ['course_id as courseId', 'link'], 1);
+$app->get('/courses/next', function($request, $response, $args){
+    $db = getDBInstance();
 
-    if($data){
-        Setters::updateRow($data[0]['courseId'], 'course_id', 'courses', ['assigned' => true]);
-        return formatResponse($response, 'success', 'Success', $data[0]);
+    $db->having('SUM(downloaded) < COUNT(course_id)');
+    $db->groupBy('course_id');
+    $id = $db->getValue('download_queue_episodes', 'course_id');
+
+    if($id){
+        return formatResponse($response, 'success', 'Success', $id);
     } else {
         $db = getDBInstance();
         return formatServerErrorResponse($response, $db->getLastQuery());

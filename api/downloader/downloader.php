@@ -13,12 +13,13 @@ class Downloader {
     var $progressId;
     var $setter;
     var $lastReported; //Time when status was last reported, to minimize heavy DB impact
+    var $lastReportedLocation; //Last reported location, used to get download speed
     
     public function Download($source, $destination, $name){
         //ini_set('max_execution_time', 300);
         $fullPath = $destination.'/'.$name;
         //ini_set('memory_limit', '4095M'); // 4 GBs minus 1 MB
-        $chunkSize = 1024*1024; //1 MiB
+        $chunkSize = 1024*1024*10; //10 MiB
 
         $this->EnsureDirExists($destination);
         $this->RemoveFileIfExists($fullPath);        
