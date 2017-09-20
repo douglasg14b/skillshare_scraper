@@ -156,7 +156,11 @@ $app->get('/downloads/{id}/progress', function($request, $response, $args){
     $id = $args['id'];
     $getter = new Getters();
     $data = $getter->Get('download_progress', ['id' => $id], ['total_size as totalSize','downloaded']);
-    return formatResponse($response, 'success', 'success', $data[0]); 
+    if($data){
+        return formatResponse($response, 'success', 'success', $data[0]); 
+    } else {
+        return formatResponse($response, 'success', 'failure', ['totalSize' => 99999, 'downloaded' => 0 ]); 
+    }
 });
 
 $app->get('/course/{courseId}/details', function($request, $response, $args){

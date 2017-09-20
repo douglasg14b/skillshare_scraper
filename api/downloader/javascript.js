@@ -7,15 +7,30 @@ class FileDownload {
         this.messages = messages;
         this.$scope = $scope;
         this.$timeout = $timeout;
+
+        this.progressMonitor = {};
     }
 
     async startDownload(url, path, fileName){
         this.deferred = this.$q.defer();
 
+        this.fileInfo = {
+          url: url,
+          path: path,
+          fileName: fileName
+        };
+
+        this.setProgressMonitor(0);
         this.coursesService.downloadEpisode(path, fileName, url).then(
           (result) => { this.handleDownloadInitSuccess(result) });
 
         return this.deferred.promise;
+    }
+
+    restartDownload(){
+        this.setProgressMonitor(0);
+        this.coursesService.downloadEpisode(this.fileInfo.path, this.fileInfo.fileName, this.fileInfo.url).then(
+          (result) => { this.handleDownloadInitSuccess(result) });      
     }
 
     monitorProgress(){
@@ -31,11 +46,35 @@ class FileDownload {
         let data = result.data.data;
         this.file.downloadedSize = data.downloaded;
 
+        if(!this.checkDownloadStagnant(data.downloaded)){
+          this.restartDownload();
+          return;
+        }
+
+        this.lastDownloaded = data.downloaded;
+        
+        if(this.progressMonitor.downloaded < data.downloaded){
+          this.setProgressMonitor(data.downloaded);
+        }
+
         if(data.downloaded < data.totalSize){
            this.$timeout(() => { this.monitorProgress(); }, 1000);
         } else {
           this.deferred.resolve();
         }
+    }
+
+    checkDownloadStagnant(downloaded){
+      let now = new Date().getTime();
+      if(now - this.progressMonitor.lastChecked > 10000 && this.progressMonitor.downloaded == downloaded){ //It's been 10 seconds with no progress
+        return false;
+      }
+      return true;
+    }
+
+    setProgressMonitor(downloaded){
+      this.progressMonitor.downloaded = downloaded;
+      this.progressMonitor.lastChecked = new Date().getTime();
     }
 
 

@@ -68,7 +68,7 @@ class Downloader {
         }
     }
 
-    private function EnsureDirExists($path){       
+    private function EnsureDirExists($path){  
         if(!is_dir($path)){
             mkdir($path, 0777, true);
         }

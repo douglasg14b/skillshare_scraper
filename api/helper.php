@@ -11,6 +11,11 @@ function Filename($string){
     $string = str_replace("*", "", $string);
     $string = str_replace("<", "(", $string);
     $string = str_replace(">", ")", $string);
+    $string = str_replace("|", "-", $string);
+
+    $string = str_replace("\t", "", $string);
+    $string = str_replace("\b", "", $string);
+    $string = str_replace("\n", "", $string);
     return $string;
 }
 
