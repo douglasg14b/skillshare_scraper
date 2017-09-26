@@ -22,15 +22,15 @@ class Downloader {
         //ini_set('memory_limit', '4095M'); // 4 GBs minus 1 MB
         $chunkSize = $this->GetChunkSize($this->totalSize);
 
-        $this->EnsureDirExists($destination);
-        $this->RemoveFileIfExists($fullPath);        
+        $this->RemoveFileIfExists($fullPath);
+        $this->EnsureDirExists($destination);       
 
         $file = fopen($source, 'rb');
         if($file){
-            $destiantionFile = fopen($fullPath, 'wb');
-            if($destiantionFile){
+            $destinationFile = fopen($fullPath, 'wb');
+            if($destinationFile){
                 while(!feof($file)){
-                    fwrite($destiantionFile, fread($file, $chunkSize), $chunkSize);
+                    fwrite($destinationFile, fread($file, $chunkSize), $chunkSize);
                     $this->ReportProgress(ftell($file));
                 }
             }
@@ -41,8 +41,8 @@ class Downloader {
         if ($file) {
             fclose($file);
         }
-        if ($destiantionFile) {
-            fclose($destiantionFile);
+        if ($destinationFile) {
+            fclose($destinationFile);
         }      
     }
 

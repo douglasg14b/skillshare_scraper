@@ -44,7 +44,6 @@ class Course {
 
     public function GeneratePathChunks(){
        $primaryTag = $this->tags[0];
-       $secondaryTag = $this->tags[1];
 
        array_push($this->pathChunks, $primaryTag->slug);
        array_push($this->pathChunks, $this->sanitizedName);

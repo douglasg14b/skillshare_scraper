@@ -64,7 +64,7 @@ angular.module('app', [])
                 }   
 
                 if(self.course.project.hasAttachments){
-                    await downloadAttachments();
+                    downloadAttachments();
                 }
                 prepEpisodes();
 
@@ -161,12 +161,17 @@ angular.module('app', [])
         $fileDownload = new FileDownload(episode, $q, $scope, $timeout, coursesService, self.messages);
         episode.status = 'Downloading';
         coursesService.setEpisodeAssigned(episode.episodeId);
-        await $fileDownload.startDownload(url, path, fileName);
-        coursesService.setEpisodeDownloaded(episode.episodeId, path+fileName);
-        episode.status = 'Done';
-        episode.downloaded = true;
-        self.episodesDownloaded ++;
-        self.sizeDownloaded += episode.size;
+        try {
+            await $fileDownload.startDownload(url, path, fileName);
+            coursesService.setEpisodeDownloaded(episode.episodeId, path+fileName);
+            episode.status = 'Done';
+            episode.downloaded = true;
+            self.episodesDownloaded ++;
+            self.sizeDownloaded += episode.size;
+        } catch(ex){
+            episode.status = 'Failed';
+        }        
+
     }
 
     async function downloadAttachments(){
@@ -178,8 +183,8 @@ angular.module('app', [])
             let attachment = self.course.project.attachments[i];
 
             let path = self.course.relativePath;
-            let fileName = attachment.title;
-            let url = attachment.link;
+            let fileName = attachment.sanitizedName;
+            let url = encodeURI(attachment.link);
 
             let statusResult = await coursesService.getAttachmentActivity(attachment.id);
             let status = statusResult.data.data;
@@ -194,11 +199,17 @@ angular.module('app', [])
             $fileDownload = new FileDownload(attachment, $q, $scope, $timeout, coursesService, self.messages);
             attachment.status = 'Downloading';
             coursesService.setAttachmentAssigned(attachment.id);
-            await $fileDownload.startDownload(url, path, fileName);
-            coursesService.setAttachmentDownloaded(attachment.id, path+fileName);
-            attachment.status = 'Done';
-            self.attachmentsDownloaded ++;
-            self.sizeDownloaded += attachment.size;
+            try {
+                await $fileDownload.startDownload(url, path, fileName);
+                coursesService.setAttachmentDownloaded(attachment.id, path+fileName);
+                attachment.status = 'Done';
+                self.attachmentsDownloaded ++;
+                self.sizeDownloaded += attachment.size;
+            } catch(ex){
+                attachment.status = 'Failed';
+                continue;
+            }
+
         }        
     }
 

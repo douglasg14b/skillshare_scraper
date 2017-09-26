@@ -8,6 +8,7 @@ class FileDownload {
         this.$scope = $scope;
         this.$timeout = $timeout;
 
+        this.downloadAttempts = 0;
         this.progressMonitor = {};
     }
 
@@ -28,6 +29,7 @@ class FileDownload {
     }
 
     restartDownload(){
+        this.downloadAttempts ++;
         this.setProgressMonitor(0);
         this.coursesService.downloadEpisode(this.fileInfo.path, this.fileInfo.fileName, this.fileInfo.url).then(
           (result) => { this.handleDownloadInitSuccess(result) });      
@@ -47,17 +49,21 @@ class FileDownload {
         this.file.downloadedSize = data.downloaded;
 
         if(!this.checkDownloadStagnant(data.downloaded)){
+          if(this.downloadAttempts == 10){
+            this.deferred.reject();
+            return;
+          }
           this.restartDownload();
           return;
         }
 
         this.lastDownloaded = data.downloaded;
-        
+
         if(this.progressMonitor.downloaded < data.downloaded){
           this.setProgressMonitor(data.downloaded);
         }
 
-        if(data.downloaded < data.totalSize){
+        if(data.totalSize == -1 || data.downloaded < data.totalSize){
            this.$timeout(() => { this.monitorProgress(); }, 1000);
         } else {
           this.deferred.resolve();

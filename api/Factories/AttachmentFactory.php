@@ -22,6 +22,7 @@ class AttachmentFactory extends Factory {
     
     public static function RenderFromDb($values){
         $class = self::BuildClassFromArray('Attachment', $values);
+        $class->SanitizeName();
         return $class;
     }
 
