@@ -63,6 +63,15 @@ One you have done all that, open your webbrowser and go to [http://localhost/ski
 You can now download single episodes by their Id, or the entire top ~8k classes that already exist in the database. If you want to downlaod them all, then you will need to insert the appropriate records into the two `queue` tables.
 
 
+### Misc 
+
+The downloader will automatically retry potentially failed downloads 10 times before moving on.
+
+The `unassign` button in the UI is used to mark a file as not-assigned so it can be retried.
+
+`Parallelism` is the number of simultaneous downloads that you want to run at the same time, adjust this to maximize your bandwidth usage.
+
+
 
 ### Example Selection Query
 
