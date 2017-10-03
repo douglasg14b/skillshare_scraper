@@ -182,7 +182,7 @@ $app->get('/courses/next', function($request, $response, $args){
     $db = getDBInstance();
 
     $db->having('SUM(downloaded) < COUNT(course_id)');
-    $db->having('SUM(assigned) < COUNT(course_id)');
+    //$db->having('SUM(assigned) < COUNT(course_id)');
     $db->groupBy('course_id');
     $id = $db->getValue('download_queue_episodes', 'course_id');
 

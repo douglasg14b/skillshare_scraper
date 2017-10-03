@@ -48,7 +48,7 @@
                         <div class="ui blue button" ng-click="vm.pullSingleClass = true" >Get Single Class</div>
                         <div class="ui blue button" ng-click="vm.pullManyClasses = true">Pull All Classes</div>
                     </div>
-                    <div ng-if="vm.pullSingleClass" class="two fields">
+                    <div ng-if="vm.pullSingleClass" class="four fields">
                         <div class="field">
                             <div class="ui input">
                                 <input ng-model="vm.courseId" id="course_id_input" type="number" placeholder="Course Id">
@@ -63,19 +63,35 @@
 
                             <div ng-if="vm.hasCourseDetails && vm.downloading" ng-click="vm.stop()" class="ui red button">Stop</div>
                         </div>
+                        <div class="inline field">
+                            <label>Parallelism</label>
+                            <input type="number" ng-model="vm.parallelism">
+                        </div>
+                        <div class="inline field">
+                            <div class="ui checkbox">
+                                <input type="checkbox" ng-model="vm.pullAssigned">
+                                <label>Pull Assigned</label>
+                            </div>                     
+                        </div>                         
                     </div>
-                    <div ng-if="vm.pullManyClasses" class="two fields">
+                    <div ng-if="vm.pullManyClasses" class="one fields">
                         <div class="field">
                             <div ng-if="!vm.downloading" ng-click="vm.startDownload()" class="ui green button">Start Download</div>
                             <div ng-if="vm.downloading" class="ui disabled green button">Start Download</div>
 
                             <div ng-if="!vm.downloading" class="ui disabled red button">Stop</div>
                             <div ng-if="vm.downloading" ng-click="vm.stop()" class="ui red button">Stop</div>
-                        </div>
+                        </div>  
                         <div class="inline field">
                             <label>Parallelism</label>
                             <input type="number" ng-model="vm.parallelism">
                         </div>
+                        <div class="inline field">
+                            <div class="ui checkbox">
+                                <input type="checkbox" ng-model="vm.pullAssigned">
+                                <label>Pull Assigned</label>
+                            </div>                     
+                        </div>                                              
                     </div>
                 </form>
                 <div ng-if="vm.hasCourseDetails" class="ui segment">

@@ -15,6 +15,7 @@ angular.module('app', [])
     self.courseId; //Input course Id, only used for single course
     self.course; //Course details
     self.parallelism = 2; //Number of parallel downloads
+    self.pullAssigned = true;
 
     self.getSingleCourseDetails = getSingleCourseDetails; //only used for single course
     self.reset = reset; //only used for single course
@@ -63,10 +64,13 @@ angular.module('app', [])
                     break;
                 }   
 
-                if(self.course.project.hasAttachments){
-                    downloadAttachments();
-                }
                 prepEpisodes();
+                prepAttachments();
+
+                let attachmentWaiters;
+                if(self.course.project.hasAttachments){
+                    attachmentWaiters = downloadAttachments();
+                }
 
                 //Should kick off multiple 'workers'
                 let waiters = [];
@@ -78,23 +82,48 @@ angular.module('app', [])
                     await waiters[i];
                 }
 
+                if(attachmentWaiters){
+                    await attachmentWaiters;
+                }
+
                 if(!self.halted){
                     await coursesService.setCourseDownloaded(self.course.id);
                     self.coursesDownloaded ++;
                 }
             }
         } else if(self.pullSingleClass){
+            prepEpisodes();
+            prepAttachments();
+
+            let attachmentWaiters = [];
             if(self.course.project.hasAttachments){
-                await downloadAttachments();
+                for(let i = 0; i < self.parallelism; i++){
+                    attachmentWaiters.push(downloadAttachments());
+                }                
             }
-            await downloadEpisodes();
+
+            //Should kick off multiple 'workers'
+            let waiters = [];
+            for(let i = 0; i < self.parallelism; i++){
+                waiters.push(downloadEpisodes());
+            }
+
+            for(let i = 0; i < waiters.length; i++){
+                await waiters[i];
+            }
+
+            if(attachmentWaiters.length > 0){
+                for(let i = 0; i < waiters.length; i++){
+                    await attachmentWaiters[i];
+                }                
+            }
             await coursesService.setCourseDownloaded(self.course.id);
         }
 
         self.downloading = false;
     }
 
-    //Sets variables for local downlaod workers
+    //Sets variables for local download workers
     async function prepEpisodes(){
         for(let i = 0; i < self.course.episodes.length; i++){
             self.course.episodes[i].assigned = false;
@@ -105,7 +134,19 @@ angular.module('app', [])
         self.course.episodes.sort(function(a,b){
             return b.size - a.size;
         })
+    }
 
+    //Sets variables for local download workers
+    async function prepAttachments(){
+        for(let i = 0; i < self.course.project.attachments.length; i++){
+            self.course.project.attachments[i].assigned = false;
+            self.course.project.attachments[i].downloaded = false;
+        }
+        
+        //Used to prioritize larger files first
+        self.course.project.attachments.sort(function(a,b){
+            return b.size - a.size;
+        })
     }
 
     async function getNextEpisode(){
@@ -119,29 +160,33 @@ angular.module('app', [])
         return false;
     }
 
+    async function getNextAttachment(){
+        for(let i = 0; i < self.course.project.attachments.length; i++){
+            let attachment = self.course.project.attachments[i];
+            if(attachment.downloaded == false && attachment.assigned == false){
+                attachment.assigned = true;
+                return attachment;
+            }
+        }
+        return false;
+    }
+
     async function downloadEpisodes(){
         let next = await getNextEpisode();
         while(next && !self.halted){
             await downloadEpisode(next);
             next = await getNextEpisode();
         }
-        /*for(let i = 0; i < self.course.episodes.length;){
-            if(self.halted){
-                break;
-            }
-
-            let ep1 = downloadEpisode(self.course.episodes[i]);           
-            if(i + 1 < self.course.episodes.length){
-                let ep2 = downloadEpisode(self.course.episodes[i+1]);
-                let results = [await ep1, await ep2];
-                i +=2;
-            } else {
-                let result = await ep1;
-                i++;
-            }            
-        }*/
     }
 
+    async function downloadAttachments(){
+        let next = await getNextAttachment();
+        while(next && !self.halted){
+            await downloadAttachment(next);
+            next = await getNextAttachment();
+        }
+    }
+    
     async function downloadEpisode(episode){
         let path = self.course.relativePath;
         let fileName = episode.fileName;
@@ -153,7 +198,7 @@ angular.module('app', [])
             episode.status = 'Done';
             episode.downloaded = true;
             return;
-        } else if(status.assigned == 1){
+        } else if(status.assigned == 1 && !self.pullAssigned){
             episode.status = 'Assigned';
             return;
         }
@@ -174,8 +219,38 @@ angular.module('app', [])
 
     }
 
-    async function downloadAttachments(){
-        for(let i = 0; i < self.course.project.attachments.length; i++){
+    async function downloadAttachment(attachment){
+
+        let path = self.course.relativePath;
+        let fileName = attachment.sanitizedName;
+        let url = encodeURI(attachment.link);
+
+        let statusResult = await coursesService.getAttachmentActivity(attachment.id);
+        let status = statusResult.data.data;
+        if(status.downloaded == 1){
+            attachment.status = 'Done';
+            return;
+        } else if(status.assigned == 1 && !self.pullAssigned){
+            attachment.status = 'Assigned';
+            return;
+        }
+
+        $fileDownload = new FileDownload(attachment, $q, $scope, $timeout, coursesService, self.messages);
+        attachment.status = 'Downloading';
+        coursesService.setAttachmentAssigned(attachment.id);
+        try {
+            await $fileDownload.startDownload(url, path, fileName);
+            coursesService.setAttachmentDownloaded(attachment.id, path+fileName);
+            attachment.status = 'Done';
+            self.attachmentsDownloaded ++;
+            self.sizeDownloaded += attachment.size;
+        } catch(ex){
+            attachment.status = 'Failed';
+        }
+
+
+
+        /*for(let i = 0; i < self.course.project.attachments.length; i++){
             if(self.halted){
                 break;
             }
@@ -191,7 +266,7 @@ angular.module('app', [])
             if(status.downloaded == 1){
                 attachment.status = 'Done';
                 continue;
-            } else if(status.assigned == 1){
+            } else if(status.assigned == 1 && !self.pullAssigned){
                 attachment.status = 'Assigned';
                 continue;
             }
@@ -210,7 +285,7 @@ angular.module('app', [])
                 continue;
             }
 
-        }        
+        }   */     
     }
 
     function reset(){
