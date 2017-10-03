@@ -69,7 +69,7 @@ The downloader will automatically retry potentially failed downloads 10 times be
 
 The `unassign` button in the UI is used to mark a file as not-assigned so it can be retried.
 
-`Parallelism` is the number of simultaneous downloads that you want to run at the same time, adjust this to maximize your bandwidth usage.
+`Parallelism` is the number of simultaneous downloads that you want to run at the same time, adjust this to maximize your bandwidth usage. 
 
 
 
