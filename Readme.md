@@ -17,7 +17,7 @@ You will need to have some level of proficency with the tools used. This was not
 
 1. Download & install [XAMPP](https://www.apachefriends.org/index.html)
 2. Download & install [MySQL Workbench](https://dev.mysql.com/downloads/workbench/)
-3. Download the DB dump from here, unzip it.
+3. Download the DB dump from [here](https://mega.nz/#!UhZ3WR6b), unzip it. key: `!TL5f9YeqXK6ObfjyFuxK-6wEHHcfvGcyNOXHh6DJDXY`
 4. Navigate to the XAMPP instlal directory and find the `htdocs` folder.
 5. Create a folder named `skillshare`
 6. Copy all the contents of this repository into that folder
@@ -35,7 +35,7 @@ Everything is now installed. Please jump do to [Usage and Configuration](#Usage-
 
 If you're chosing this path, I assume you know what your doing. You just need to do the following:
 
-1. Download the DB dump from here, unzip it.
+1. Download the DB dump from [here](https://mega.nz/#!UhZ3WR6b), unzip it. key: `!TL5f9YeqXK6ObfjyFuxK-6wEHHcfvGcyNOXHh6DJDXY`
 2. Import this into your MySQL/MariaDB database, the user may need to be changed, it includes the create schema (skillshare)
 3. Paste the contents of this repository wherever you need to to get it to run
 4. Proceeed to [Usage and Configuration](#Usage-and-Configuration)
