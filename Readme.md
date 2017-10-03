@@ -42,7 +42,7 @@ If you're chosing this path, I assume you know what your doing. You just need to
 
 ## Usage and Configuration
 
-Create a file named `config.php` file and paste the following into it:
+Create a file named `config.php` in the skillshare directory file and paste the following into it:
 
 ```php
 <?php
@@ -56,7 +56,7 @@ define('DB_PASS', '');
 define('BASE_DOWNLOAD_PATH', "C:\\myfolder\\myotherfolder\\somefolder");
 ```
 
-Configure the config as necessary for your scenario, setting the hosy, name, username, and password to the appropriate values. Make sure you set a path where you want it to download files to.
+Configure the config as necessary for your scenario, setting the host, name, username, and password to the appropriate values. Make sure you set a path where you want it to download files to.
 
 One you have done all that, open your webbrowser and go to [http://localhost/skillshare/api/downloader/](http://localhost/skillshare/api/downloader/) or the equivilant for your setup.
 
