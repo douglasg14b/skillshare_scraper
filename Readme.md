@@ -33,7 +33,7 @@ Everything is now installed. Please jump do to [Usage and Configuration](#Usage-
 
 ### Other Way
 
-If you're chosing this path, I assume you know what your doing. You just need to do the following:
+If you're chosing this path, I assume you know what you're doing. You just need to do the following:
 
 1. Download the DB dump from [here](https://mega.nz/#!UhZ3WR6b), unzip it. key: `!TL5f9YeqXK6ObfjyFuxK-6wEHHcfvGcyNOXHh6DJDXY`
 2. Import this into your MySQL/MariaDB database, the user may need to be changed, it includes the create schema (skillshare)
