@@ -2,7 +2,7 @@
 
 This is some code written to both scrape, and pull data from skillshare. The scraping scripts themselves can be found under `/scraping userscripts`. They are not well documented as they where intended for one-time-use.
 
-Everything under `/api` is the meat of the code that pulls the actual assets from the skillshare site and their providers. It's written.
+Everything under `/api` is the meat of the code that pulls the actual assets from the skillshare site and their providers.
 
 None of this has been tested in other environments, your mileage may vary.
 
