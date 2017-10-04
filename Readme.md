@@ -21,6 +21,7 @@ You will need to have some level of proficency with the tools used. This was not
 4. Navigate to the XAMPP instlal directory and find the `htdocs` folder.
 5. Create a folder named `skillshare`
 6. Copy all the contents of this repository into that folder
+7. Extract the `assets` and `vendor` zips in the skillshare folder. This is to create the `assets` and `vendor` folders with reqired assets
 7. Open MySQL Workbench 
 8. Connect to your local database (`localhost:3306` with user of `root` and no password usually). Ignore any incompatability warnings.
 9. Go to `Server` -> `Data Import`.
@@ -38,7 +39,8 @@ If you're chosing this path, I assume you know what you're doing. You just need 
 1. Download the DB dump from [here](https://mega.nz/#!UhZ3WR6b), unzip it. key: `!TL5f9YeqXK6ObfjyFuxK-6wEHHcfvGcyNOXHh6DJDXY`
 2. Import this into your MySQL/MariaDB database, the user may need to be changed, it includes the create schema (skillshare)
 3. Paste the contents of this repository wherever you need to to get it to run
-4. Proceeed to [Usage and Configuration](#Usage-and-Configuration)
+5. Extract the `assets` and `vendor` zips in the skillshare folder. This is to create the `assets` and `vendor` folders with reqired assets
+6. Proceeed to [Usage and Configuration](#Usage-and-Configuration)
 
 ## Usage and Configuration
 
