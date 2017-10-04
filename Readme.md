@@ -1,8 +1,8 @@
 # What is this?
 
-This is some code written to both scrape, and pull data from skillshare. The scraping scripts themselves can be found under `/scraping userscripts`. They are not well documented as they where intended for one-time-use.
+This is some code written to both scrape, and pull data from skillshare. There is a database linked below that has direct links for just about every video and attachment from every class I could find, along with all their associated metadata. The scraping scripts themselves can be found under `/scraping userscripts`. They are not well documented as they where intended for one-time-use.
 
-Everything under `/api` is the meat of the code that pulls the actual assets from the skillshare site and their providers. It's written.
+Everything under `/api` is the meat of the code that pulls the actual assets from the skillshare site and their providers.
 
 None of this has been tested in other environments, your mileage may vary.
 
@@ -33,7 +33,7 @@ Everything is now installed. Please jump do to [Usage and Configuration](#Usage-
 
 ### Other Way
 
-If you're chosing this path, I assume you know what your doing. You just need to do the following:
+If you're chosing this path, I assume you know what you're doing. You just need to do the following:
 
 1. Download the DB dump from [here](https://mega.nz/#!UhZ3WR6b), unzip it. key: `!TL5f9YeqXK6ObfjyFuxK-6wEHHcfvGcyNOXHh6DJDXY`
 2. Import this into your MySQL/MariaDB database, the user may need to be changed, it includes the create schema (skillshare)
@@ -42,7 +42,7 @@ If you're chosing this path, I assume you know what your doing. You just need to
 
 ## Usage and Configuration
 
-Create a file named `config.php` file and paste the following into it:
+Create a file named `config.php` in the skillshare directory file and paste the following into it:
 
 ```php
 <?php
@@ -56,7 +56,7 @@ define('DB_PASS', '');
 define('BASE_DOWNLOAD_PATH', "C:\\myfolder\\myotherfolder\\somefolder");
 ```
 
-Configure the config as necessary for your scenario, setting the hosy, name, username, and password to the appropriate values. Make sure you set a path where you want it to download files to.
+Configure the config as necessary for your scenario, setting the host, name, username, and password to the appropriate values. Make sure you set a path where you want it to download files to.
 
 One you have done all that, open your webbrowser and go to [http://localhost/skillshare/api/downloader/](http://localhost/skillshare/api/downloader/) or the equivilant for your setup.
 
