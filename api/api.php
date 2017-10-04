@@ -1,13 +1,15 @@
 <?php
+
 use \Psr\Http\Message\ServerRequestInterface as Request;
 use \Psr\Http\Message\ResponseInterface as Response;
 
-require_once '..\vendor\autoload.php';
-require_once "..\assets\MysqliDb\MysqliDb.php";
-require_once "..\setters.php";
-require_once "..\getters.php";
-require_once "..\CourseProcessor.php";
-require_once "downloader/Downloader.php";
+require_once dirname(__DIR__)."\config.php";
+require_once ROOT_PATH."/vendor/autoload.php";
+require_once ROOT_PATH."/assets/MysqliDb/MysqliDb.php";
+require_once ROOT_PATH."/setters.php";
+require_once ROOT_PATH."/getters.php";
+require_once ROOT_PATH."/CourseProcessor.php";
+require_once ROOT_PATH."/api/downloader/Downloader.php";
 
 
 $configuration = [

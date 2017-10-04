@@ -49,6 +49,7 @@ Create a file named `config.php` in the skillshare directory file and paste the 
 ```php
 <?php
 
+define('ROOT_PATH', __DIR__);
 define('DB_HOST', 'localhost');
 define('DB_NAME', 'skillshare');
 
