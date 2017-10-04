@@ -17,7 +17,7 @@ You will need to have some level of proficency with the tools used. This was not
 
 1. Download & install [XAMPP](https://www.apachefriends.org/index.html)
 2. Download & install [MySQL Workbench](https://dev.mysql.com/downloads/workbench/)
-3. Download the DB dump from [here](https://mega.nz/#!MpABgQTb), unzip it. key: `!!rrO82PmpDqGxrHzMsUgrwfN5t3yPay3gMzzfU3C9QBI`
+3. Download the DB dump from [here](https://mega.nz/#!MpABgQTb), unzip it. key: `!rrO82PmpDqGxrHzMsUgrwfN5t3yPay3gMzzfU3C9QBI`
 4. Navigate to the XAMPP instlal directory and find the `htdocs` folder.
 5. Create a folder named `skillshare`
 6. Copy all the contents of this repository into that folder
