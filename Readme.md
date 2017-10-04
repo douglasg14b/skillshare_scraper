@@ -1,6 +1,6 @@
 # What is this?
 
-This is some code written to both scrape, and pull data from skillshare. The scraping scripts themselves can be found under `/scraping userscripts`. They are not well documented as they where intended for one-time-use.
+This is some code written to both scrape, and pull data from skillshare. There is a database linked below that has direct links for just about every video and attachment from every class I could find, along with all their associated metadata. The scraping scripts themselves can be found under `/scraping userscripts`. They are not well documented as they where intended for one-time-use.
 
 Everything under `/api` is the meat of the code that pulls the actual assets from the skillshare site and their providers.
 
