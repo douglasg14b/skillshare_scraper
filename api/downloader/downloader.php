@@ -1,6 +1,6 @@
 <?php 
-include_once '/../helper.php';
-include_once '/../../setters.php';
+include_once ROOT_PATH.'/api/helper.php';
+include_once ROOT_PATH.'/setters.php';
 
 class Downloader {
     function __construct($source){

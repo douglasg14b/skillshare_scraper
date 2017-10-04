@@ -1,6 +1,6 @@
 <?php
 
-include_once '/../helper.php';
+include_once ROOT_PATH.'/api/helper.php';
 
 class Course {
 
