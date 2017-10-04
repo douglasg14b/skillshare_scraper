@@ -1,12 +1,12 @@
 <?php
 
-require_once '/../Models/Attachment.php';
-require_once '/../Models/Course.php';
-require_once '/../Models/Episode.php';
-require_once '/../Models/Author.php';
-require_once '/../Models/Project.php';
-require_once '/../Models/Tag.php';
-require_once '/../helper.php';
+require_once ROOT_PATH.'/api/Models/Attachment.php';
+require_once ROOT_PATH.'/api/Models/Course.php';
+require_once ROOT_PATH.'/api/Models/Episode.php';
+require_once ROOT_PATH.'/api/Models/Author.php';
+require_once ROOT_PATH.'/api/Models/Project.php';
+require_once ROOT_PATH.'/api/Models/Tag.php';
+require_once ROOT_PATH.'/api/helper.php';
 
 /**
  * Description of Factory
