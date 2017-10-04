@@ -2,12 +2,12 @@
 require_once "assets\MysqliDb\MysqliDb.php";
 require_once "config.php";
 
-require_once 'Factories/CourseFactory.php';
-require_once 'Factories/EpisodeFactory.php';
-require_once 'Factories/AuthorFactory.php';
-require_once 'Factories/ProjectFactory.php';
-require_once 'Factories/AttachmentFactory.php';
-require_once 'Factories/TagFactory.php';
+require_once ROOT_PATH.'/api/Factories/CourseFactory.php';
+require_once ROOT_PATH.'/api/Factories/EpisodeFactory.php';
+require_once ROOT_PATH.'/api/Factories/AuthorFactory.php';
+require_once ROOT_PATH.'/api/Factories/ProjectFactory.php';
+require_once ROOT_PATH.'/api/Factories/AttachmentFactory.php';
+require_once ROOT_PATH.'/api/Factories/TagFactory.php';
 
 class Getters {
 
