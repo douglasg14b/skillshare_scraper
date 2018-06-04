@@ -11,6 +11,7 @@
 
 (function(){
 
+    var address= "localhost";
     let container;
     let scrollModule;
     let dataCollectorModule
@@ -45,9 +46,21 @@
 
         self.coursesFound = 0;
         self.coursesSent = 0;
+        self.coursesNotSent = 0;
+        self.responses = 0; //The # of responses to the sending
         self.coursesData = [];
 
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
         function collectData(){
+                self.coursesData.length = 0;
+                self.coursesFound = 0;
+                self.coursesSent = 0;
+                self.coursesNotSent = 0;
+                self.responses = 0;
+
             $('.col-4 .title-link a').each(function(index){
                 self.coursesFound++;
                 updateStats();
@@ -67,24 +80,33 @@
             sendCourses(0);
         }
 
-        function sendCourses(index){
+        async function sendCourses(index){
             if(index < self.coursesData.length){
                 let chunk = 5;
                 for(let i = 0; i < chunk; i++){
                     if(i+index < self.coursesData.length){
-                        $.post("https://192.168.2.4/skillshare/api/course/new", self.coursesData[i+index]).then(
+                        $.post("https://"+address+"/skillshare/api/course/new", self.coursesData[i+index]).then(
                             () => {
                                 self.coursesSent ++;
+                                self.responses ++;
                                 updateStats();
+                                checkMarkComplete();
                             },
                             (response) => {
                                 console.log(response.responseJSON.message);
+                                self.coursesNotSent ++;
+                                self.responses ++;
+                                updateStats();
+                                checkMarkComplete();
                             }
                         );
                     } else {
                         break;
                     }
                 }
+                updateStats();
+                checkMarkComplete();
+                await sleep(250);
                 sendCourses(index + chunk);
             }
         }
@@ -105,12 +127,27 @@
             return output;
         }
 
+        function checkMarkComplete(){
+            if(self.coursesFound == self.responses){
+                self.stats.css({color: "green"});
+                self.coursesData.length = 0;
+                self.coursesFound = 0;
+                self.coursesSent = 0;
+                self.coursesNotSent = 0;
+                self.responses = 0;
+
+            } else {
+                self.stats.css({color: "black"});
+            }
+        }
+
         function updateStats(){
-            self.stats.text(`Found ${self.coursesFound} courses sent ${self.coursesSent}`);
+            self.stats.html(`${self.coursesSent}/${self.coursesFound} Added. ${self.coursesNotSent} Not Added <br> ${self.responses}/${self.coursesFound} Handled`);
+            //self.stats.text(`Found ${self.coursesFound} courses sent ${self.coursesSent}`);
         }
 
         function addStats(){
-            let stats = $('<div></div>');
+            let stats = $('<div style="background:white;"></div>');
             container.append(stats);
             self.stats = stats;
         }

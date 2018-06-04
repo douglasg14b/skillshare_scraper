@@ -64,6 +64,7 @@ $app->get('/attachment/{id}/active', function($request, $response, $args){
 
     return formatResponse($response, 'success', 'success', $data);
 });
+
 //Sets the episode as unassign in the queue
 $app->post('/episode/{id}/unassign', function($request, $response, $args){
     $id = $args['id'];
@@ -179,7 +180,18 @@ $app->get('/delay', function($request, $response, $args){
     return formatResponse($response, 'success', 'sucess stuff'); 
 });
 
-//Adds a new course and it's link to the DB
+//Gets the next course for metadata retrieval
+$app->get('/next', function($request, $response, $args){
+    $data = Getters::Get('courses', ['downloaded_meta' => false, 'assigned' => false], ['course_id as courseId', 'link'], 1);
+    if($data){
+        Setters::updateRow($data[0]['courseId'], 'course_id', 'courses', ['assigned' => true]);
+        return formatResponse($response, 'success', 'Success', $data[0]);
+    } else {
+        $db = getDBInstance();
+        return formatServerErrorResponse($response, $db->getLastQuery());
+    }
+});
+
 $app->get('/courses/next', function($request, $response, $args){
     $db = getDBInstance();
 
@@ -230,6 +242,7 @@ $app->post('/course/new', function($request, $response, $args){
     return formatConflictResponse($response, "Course Already Exists");
 });
 
+//Locks a course
 $app->post('/course/{id}/locked', function($request, $response, $args){
 
     $id = $args['id'];
@@ -244,16 +257,19 @@ $app->post('/course/{id}/locked', function($request, $response, $args){
 
 //Adds course data
 $app->post('/course/{id}/data', function($request, $response, $args){
+    $updateExisting = true; //Whether existing courses should have data updated
+
     $parsed = $request->getParsedBody();
     if(empty($parsed)){
         return formatBadRequestResponse($response, "No data supplied");
     }
 
-    $result = CourseProcessor::ProcessCourse($parsed);
-    if($result['status'] == 'success'){
-        return formatResponse($response, 'success', 'Sucessfully inserted', $parsed);
+    $result = CourseProcessor::ProcessCourse($parsed, $updateExisting);
+    
+    if($result['status'] == 'success' || $result['status'] == 'updated'){
+        return formatResponse($response, $result['status'], $result['message'], $parsed);
     } else if($result['status'] == 'duplicate') {
-        return formatConflictResponse($response, 'Course Already Exists');
+        return formatConflictResponse($response, $result['message']);
     } else {
         return formatServerErrorResponse($response, $result['message']);
     }

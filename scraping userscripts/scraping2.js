@@ -30,6 +30,7 @@
     }
  */
 (function(){
+    let serverAddress ='localhost';
     let manualMode = false;
 
     let dataGetter = null;
@@ -51,17 +52,35 @@
         startTimer();
 
         setStatus('pulling');
-        let getterStatus = await dataGetter.getData();
+        try {
+            let getterStatus = await dataGetter.getData();
 
-        if(getterStatus.success){
-            serverComms.sendData(dataGetter.data).then(handleSendSuccess, handleSendFailure);
-        } else if(getterStatus.reason == 'locked') {
-            serverComms.markLocked(dataGetter.data.sku).then(handleSendSuccess, handleSendFailure);
+            if(getterStatus.success){
+                serverComms.sendData(dataGetter.data).then(handleSendSuccess, handleSendFailure);
+            } else if(getterStatus.reason == 'locked') {
+                setStatus('locked');
+                serverComms.markLocked(dataGetter.data.sku).then(handleSendSuccess, handleSendFailure);
+            } else {
+                setStatus('invalid');
+            }
+        } catch(ex){
+            setStatus('invalid');
+            await sleep(1500);
+            serverComms.moveNext();
         }
+
+    }
+
+    function sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
     }
 
     function handleSendSuccess(result){
-        setStatus('pulled');
+        if(result.status == 'updated'){
+            setStatus('updated');
+        } else {
+            setStatus('pulled');
+        }
         if(!manualMode){
             serverComms.moveNext();
         }
@@ -115,9 +134,24 @@
                 statusBox.find('.status').text('Failure');
                 stopTimer();
                 break;
+            case 'locked':
+                statusBox.find('.status').css('background', '#de3030');
+                statusBox.find('.status').text('Locked');
+                stopTimer();
+                break;
+            case 'invalid':
+                statusBox.find('.status').css('background', '#de3030');
+                statusBox.find('.status').text('Invalid Link');
+                stopTimer();
+                break;
             case 'duplicate':
                 statusBox.find('.status').css('background', '#de3030');
                 statusBox.find('.status').text('Already Exists');
+                stopTimer();
+                break;
+            case 'updated':
+                statusBox.find('.status').css('background', '#29bf2e');
+                statusBox.find('.status').text('Updated Course');
                 stopTimer();
                 break;
         }
@@ -196,6 +230,7 @@
         function moveNext(){
             getNext().then(
                 (result) => {
+                    console.log(result.data.link);
                     goToPage(result.data.link);
                 },
                 (result) => {
@@ -205,24 +240,24 @@
         }
 
         function getNext(){
-            return $.get('https://192.168.2.4/skillshare/api/next');
+            return $.get('https://'+serverAddress+'/skillshare/api/next');
         }
 
         function markLocked(id){
-            return $.post(`https://192.168.2.4/skillshare/api/course/${id}/locked`);
+            return $.post(`https://${serverAddress}/skillshare/api/course/${id}/locked`);
         }
 
         function sendData(data){
             let deferred = Q.defer();
 
             $.ajax({
-                url: `https://192.168.2.4/skillshare/api/course/${data.sku}/data`,
+                url: `https://${serverAddress}/skillshare/api/course/${data.sku}/data`,
                 type: 'POST',
                 contentType: "application/json",
                 crossOrigin: true,
                 data: JSON.stringify(data)
             }).done(function(result){
-                deferred.resolve();
+                deferred.resolve(result);
             }).fail(function(result, error){
                 console.log(error);
                 deferred.reject(result);

@@ -4,12 +4,45 @@ require_once 'getters.php';
 
 class CourseProcessor {
 
-    public static function ProcessCourse($course){
+    public static function ProcessCourse($course, $updateMeta = false){
         $db = self::getDBInstance();
         $db->startTransaction();
-        try {            
+        try {
             self::VerifyCourse($course);
-            Setters::updateRow($course['sku'], 'course_id', 'courses', ['downloaded_meta' => true]);
+            if(!self::CourseExists($course)){
+                if(self::ProcessCourseMeta($course)){
+                    self::ProcessAuthor($course['author']);
+                    self::ProcessEpisodes($course['episodes'], $course['sku']);
+                    self::ProcessProject($course['project'], $course['sku']);
+                    self::ProcessTags($course['tags'], $course['sku']);
+                    $db->commit();
+                    return [
+                        'status' => 'success',
+                        'message' => 'Added Course'
+                    ];         
+                }
+            } else {
+                if(!$updateMeta){
+                    return [
+                        'status' => 'duplicate',
+                        'message' => 'Course Already Exists'
+                    ];
+                } else {
+                    if(self::ProcessCourseMeta($course, $updateMeta)){
+                        $db->commit();
+                        return [
+                            'status' => 'updated',
+                            'message' => 'Updated Existing Course'
+                        ]; 
+                    }
+                    return [
+                        'status' => 'error',
+                        'message' => 'Course not updated'
+                    ];
+ 
+                }
+            }
+            /*Setters::updateRow($course['sku'], 'course_id', 'courses', ['downloaded_meta' => true]);
             if(self::ProcessCourseMeta($course)){
                 self::ProcessAuthor($course['author']);
                 self::ProcessEpisodes($course['episodes'], $course['sku']);
@@ -19,11 +52,13 @@ class CourseProcessor {
                 return [
                     'status' => 'success'
                 ];         
+            } else {
+
             }
             $db->commit();
             return [
                 'status' => 'duplicate'
-            ];
+            ];*/
         } catch(Exception $ex){
             $result = [
                 'status' => 'error',
@@ -32,6 +67,13 @@ class CourseProcessor {
             $db->rollback();
             return $result;        
         }
+    }
+
+    private static function CourseExists($course){
+        if(Setters::rowExists('courses_meta', ['course_id' => $course['sku']])){
+            return true;
+        }
+        return false;
     }
 
     //Verifies course is all there
@@ -184,7 +226,7 @@ class CourseProcessor {
         }      
     }
 
-    private static function ProcessCourseMeta($course){
+    private static function ProcessCourseMeta($course, $update = false){
         if(!Setters::rowExists('courses_meta', ['course_id' => $course['sku']])){
             $id = Setters::insertRow('courses_meta', [
                 'course_id' => $course['sku'],
@@ -199,6 +241,19 @@ class CourseProcessor {
                 throw new Exception($db->getLastError());                
             }
             return true;                
+        } elseif($update){
+            $updated = Setters::updateRowMultipleCriteria('courses_meta', [
+                'students' => $course['students'],
+                'reviews_total' => $course['reviews']['total'],
+                'reviews_positive' => $course['reviews']['positive'],
+                'description' => $course['description'],
+                'author' => $course['author']['id']
+            ], ['course_id' => $course['sku']]);
+            if(!$updated){
+                $db = self::getDBInstance();
+                throw new Exception($db->getLastError());   
+            }
+            return true; 
         }
         return false;
     }
