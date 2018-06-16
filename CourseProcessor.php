@@ -9,7 +9,38 @@ class CourseProcessor {
         $db->startTransaction();
         try {
             self::VerifyCourse($course);
-            if(!self::CourseExists($course)){
+            $exists = self::CourseExists($course);
+
+            if($exists && !$updateMeta){
+                return [
+                    'status' => 'duplicate',
+                    'message' => 'Course Already Exists'
+                ];
+            }
+
+            if(self::ProcessCourseMeta($course)){
+                Setters::updateRow($course['sku'], 'course_id', 'courses', ['downloaded_meta' => true]);
+                self::ProcessAuthor($course['author']);
+                self::ProcessEpisodes($course['episodes'], $course['sku']);
+                self::ProcessProject($course['project'], $course['sku']);
+                self::ProcessTags($course['tags'], $course['sku']);
+                $db->commit();
+
+                if($exists){
+                    return [
+                        'status' => 'updated',
+                        'message' => 'Updated Existing Course'
+                    ]; 
+                }
+
+                return [
+                    'status' => 'success',
+                    'message' => 'Added or Course'
+                ];         
+            }
+
+
+            /*if(!self::CourseExists($course)){
                 if(self::ProcessCourseMeta($course)){
                     self::ProcessAuthor($course['author']);
                     self::ProcessEpisodes($course['episodes'], $course['sku']);
@@ -18,7 +49,7 @@ class CourseProcessor {
                     $db->commit();
                     return [
                         'status' => 'success',
-                        'message' => 'Added Course'
+                        'message' => 'Added or Course'
                     ];         
                 }
             } else {
@@ -28,7 +59,7 @@ class CourseProcessor {
                         'message' => 'Course Already Exists'
                     ];
                 } else {
-                    if(self::ProcessCourseMeta($course, $updateMeta)){
+                    if(self::UpdateCourseMeta($course)){
                         $db->commit();
                         return [
                             'status' => 'updated',
@@ -41,7 +72,7 @@ class CourseProcessor {
                     ];
  
                 }
-            }
+            }*/
             /*Setters::updateRow($course['sku'], 'course_id', 'courses', ['downloaded_meta' => true]);
             if(self::ProcessCourseMeta($course)){
                 self::ProcessAuthor($course['author']);
@@ -226,8 +257,31 @@ class CourseProcessor {
         }      
     }
 
-    private static function ProcessCourseMeta($course, $update = false){
+    private static function ProcessCourseMeta($course){
+        $id = null;
+        $metaData = [
+            'students' => $course['students'],
+            'reviews_total' => $course['reviews']['total'],
+            'reviews_positive' => $course['reviews']['positive'],
+            'description' => $course['description'],
+            'author' => $course['author']['id']            
+        ];
         if(!Setters::rowExists('courses_meta', ['course_id' => $course['sku']])){
+            $metaData['course_id'] = $course['sku'];
+            $id = Setters::insertRow('courses_meta', $metaData);
+        } else {
+            $id = Setters::updateRowMultipleCriteria('courses_meta', $metaData, ['course_id' => $course['sku']]);
+        }
+
+        if(!$id){
+            $db = self::getDBInstance();
+            throw new Exception($db->getLastError());                
+        }
+
+        return true;  
+        
+
+        /*if(!Setters::rowExists('courses_meta', ['course_id' => $course['sku']])){
             $id = Setters::insertRow('courses_meta', [
                 'course_id' => $course['sku'],
                 'students' => $course['students'],
@@ -241,25 +295,30 @@ class CourseProcessor {
                 throw new Exception($db->getLastError());                
             }
             return true;                
-        } elseif($update){
-            $updated = Setters::updateRowMultipleCriteria('courses_meta', [
-                'students' => $course['students'],
-                'reviews_total' => $course['reviews']['total'],
-                'reviews_positive' => $course['reviews']['positive'],
-                'description' => $course['description'],
-                'author' => $course['author']['id']
-            ], ['course_id' => $course['sku']]);
-            if(!$updated){
-                $db = self::getDBInstance();
-                throw new Exception($db->getLastError());   
-            }
-            return true; 
-        }
+        }*/
         return false;
     }
 
     private static function ProcessAuthor($author){
+        $id = null;
+        $authorData = [
+            'name' => $author['name'],
+            'url' => $author['url']
+        ];
+
         if(!Setters::rowExists('authors', ['author_id' => $author['id']])){
+            $authorData['author_id'] = $author['id'];
+            $id = Setters::insertRow('authors', $authorData);
+        } else {
+            $id = Setters::updateRowMultipleCriteria('authors', $authorData, ['author_id' => $author['id']]);
+        }
+
+        if(!$id){
+            $db = self::getDBInstance();
+            throw new Exception($db->getLastError());
+        }
+
+        /*if(!Setters::rowExists('authors', ['author_id' => $author['id']])){
             $id = Setters::insertRow('authors', [
                 'author_id' => $author['id'],
                 'name' => $author['name'],
@@ -269,7 +328,7 @@ class CourseProcessor {
                 $db = self::getDBInstance();
                 throw new Exception($db->getLastError());
             }
-        }
+        }*/
     }
 
     private static function ProcessEpisodes($episodes, $courseId){
@@ -281,7 +340,23 @@ class CourseProcessor {
                 self::ProcessEpisodeThumbnails($episode['thumbnails'], $episode['episodeId']);
             }
 
+            $episodeData = self::GetEpisodeDataForDb($episode, $courseId);
+            $id = null;
+            //If it doesn't exist, add the Id to it
             if(!Setters::rowExists('episodes', ['episode_id' => $episode['episodeId']])){
+                $episodeData['episode_id'] = $episode['episodeId'];
+                $id = Setters::insertRow('episodes', $episodeData); 
+            } else {
+                $id = Setters::updateRowMultipleCriteria('episodes', $episodeData, ['episode_id' => $episode['episodeId']]);
+            }
+
+            if(!$id){
+                throw new Exception($db->getLastError());
+            }
+
+
+
+            /*if(!Setters::rowExists('episodes', ['episode_id' => $episode['episodeId']])){
                 $id = null;
                 if($episode['hasSource']){
                     $id = Setters::insertRow('episodes', [
@@ -319,12 +394,78 @@ class CourseProcessor {
                 if(!$id){
                     throw new Exception($db->getLastError());
                 }         
-            }
+            }*/
         }
     }
 
+    //Gets the episode data that's to be inserted or updated in the database
+    private static function GetEpisodeDataForDb($episode, $courseId){
+        $db = self::getDBInstance();
+        $episodeData = null;
+
+        if($episode['hasSource']){
+            $episodeData = [
+                'number' => $episode['number'],
+                'created_at' => $db->func("STR_TO_DATE(?, '%Y-%m-%dT%H:%i:%s.%fZ')", [$episode['createdAt']]),
+                'title' => $episode['title'],
+                'video_id' => $episode['videoId'],
+                'video_avg_bitrate' => $episode['source']['avgBitrate'],
+                'video_duration' => $episode['source']['duration'],
+                'video_height' => $episode['source']['height'],
+                'video_size' => $episode['source']['size'],
+                'video_url' => $episode['source']['url'],
+                'video_width' => $episode['source']['width'],
+                'has_source' => true
+            ];
+        } else {
+            $episodeData = [
+                'course_id' => $courseId,
+                'number' => $episode['number'],
+                'title' => $episode['title'],
+                'has_source' => false
+            ];
+            if(array_key_exists('createdAt', $episode) && !empty($episode['createdAt'])){
+                $episodeData['created_at'] = $db->func("STR_TO_DATE(?, '%Y-%m-%dT%H:%i:%s.%fZ')", [$episode['createdAt']]);
+            }
+            if(array_key_exists('videoId', $episode) && !empty($episode['videoId'])){
+                $episodeData['video_id'] = $episode['videoId'];
+            } 
+        }
+
+        return $episodeData;
+    }
+
     private static function ProcessEpisodeThumbnails($thumbnails, $episodeId){
+        $id = null;
+        $thumbData = [];
+        $keys = [
+            'huge',
+            'large',
+            'medium',
+            'small',
+            'thumbnail',
+            'original'
+        ];
+
+        foreach($keys as $key){
+            if(array_key_exists($key, $thumbnails)){
+                $thumbData[$key.'_url'] = $thumbnails[$key];
+            }
+        }
+        
         if(!Setters::rowExists('thumbnails', ['episode_id' => $episodeId])){
+            $thumbData['episode_id'] = $episodeId;
+            $id = Setters::insertRow('thumbnails', $thumbData);
+        } else {
+            $id = Setters::updateRowMultipleCriteria('thumbnails', $thumbData, ['episode_id' => $episodeId]);
+        }
+        
+        if(!$id){
+            $db = self::getDBInstance();
+            throw new Exception($db->getLastError());
+        } 
+
+        /*if(!Setters::rowExists('thumbnails', ['episode_id' => $episodeId])){
             $keys = [
                 'huge',
                 'large',
@@ -346,11 +487,30 @@ class CourseProcessor {
                 $db = self::getDBInstance();
                 throw new Exception($db->getLastError());
             }            
-        }
+        }*/
     }
 
     private static function ProcessProject($project, $courseId){
+        $projectData = [
+            'has_attachments' => $project['hasAttachments'],
+            'project_guide' => $project['projectGuide']
+        ];
+
         if(!Setters::rowExists('projects', ['course_id' => $courseId])){
+            $projectData['course_id'] = $courseId;
+            $id = Setters::insertRow('projects', $projectData);
+        } else {
+            $id = Setters::updateRowMultipleCriteria('projects', $projectData, ['course_id' => $courseId]);
+        }
+
+        if(!$id){
+            $db = self::getDBInstance();
+            throw new Exception($db->getLastError());
+        } else if($project['hasAttachments']) {
+            self::ProcessAttachments($id, $courseId, $project['attachments']);
+        }
+
+        /*if(!Setters::rowExists('projects', ['course_id' => $courseId])){
             $id = Setters::insertRow('projects', [
                 'course_id' => $courseId,
                 'has_attachments' => $project['hasAttachments'],
@@ -362,12 +522,40 @@ class CourseProcessor {
             } else if($project['hasAttachments']) {
                 self::ProcessAttachments($id, $courseId, $project['attachments']);
             }
-        }
+        }*/
     }
 
     private static function ProcessAttachments($projectId, $courseId, $attachments){
+        $id = null;
+
         foreach($attachments as $attachment){
-            $id = Setters::insertRow('attachments', [
+            $attachmentData = [
+                'course_id' => $courseId,
+                'project_id' => $projectId,
+                'title' => $attachment['title'],
+                'url' => $attachment['url'],
+                'size_string' => $attachment['sizeString'],
+                'size' => $attachment['size']
+            ];
+
+            $criteria = [
+                'course_id' => $courseId, 
+                'project_id' => $projectId, 
+                'title' => $attachment['title']
+            ];
+
+            if(!Setters::rowExists('attachments', $criteria)){
+                $id = Setters::insertRow('attachments', $attachmentData);
+            } else {
+                $id = Setters::updateRowMultipleCriteria('attachments', $attachmentData, $criteria);
+            }
+
+            if(!$id){
+                $db = self::getDBInstance();
+                throw new Exception($db->getLastError());
+            }
+
+            /*$id = Setters::insertRow('attachments', [
                 'course_id' => $courseId,
                 'project_id' => $projectId,
                 'title' => $attachment['title'],
@@ -378,20 +566,22 @@ class CourseProcessor {
             if(!$id){
                 $db = self::getDBInstance();
                 throw new Exception($db->getLastError());
-            }
+            }*/
         }
     }
 
     private static function ProcessTags($tags, $courseId){
         foreach($tags as $tag){
             $tagId = self::ProcessTag($tag);
-            $id = Setters::insertRow('course_tags', [
-                'tag_id' => $tagId,
-                'course_id' => $courseId
-            ]);
-            if(!$id){
-                $db = self::getDBInstance();
-                throw new Exception($db->getLastError());
+            if(!Setters::rowExists('course_tags', ['tag_id' => $tagId, 'course_id' => $courseId])){
+                $id = Setters::insertRow('course_tags', [
+                    'tag_id' => $tagId,
+                    'course_id' => $courseId
+                ]);
+                if(!$id){
+                    $db = self::getDBInstance();
+                    throw new Exception($db->getLastError());
+                }
             }
         }
     }
@@ -413,6 +603,7 @@ class CourseProcessor {
             }        
         } else {
             $id = Getters::GetValue('tags', ['name' => $tag['name']], 'id');
+            self::UpdateTag($tag, $id);
             if(!$id){
                 throw new Exception($db->getLastError());
             } else {
@@ -420,6 +611,20 @@ class CourseProcessor {
             }
         }
     }
+
+    private static function UpdateTag($tag){
+        $id = null;
+        $id = Setters::updateRowMultipleCriteria('tags', [
+            'name' => $tag['name'],
+            'slug' => $tag['slug'],
+            'classes' => $tag['numClasses'],
+            'followers' => $tag['numFollowers'],
+        ], ['name' => $tag['name']]);
+        if(!$id){
+            throw new Exception($db->getLastError());
+        }
+    }
+
 
     private static function getDBInstance(){
         $db = MysqliDb::getInstance();
