@@ -134,3 +134,42 @@ and
 GROUP BY
 	courses_meta.course_id, courses.name
 ```
+
+### Example Insert for Episodes
+
+```sql
+
+INSERT INTO skillshare.download_queue_episodes (course_id, episode_id, episode_url)
+SELECT 
+	episodes.course_id,
+    episodes.episode_id,
+    skillshare.episodes.video_url
+ FROM skillshare.episodes
+LEFT JOIN download_queue_episodes ON download_queue_episodes.episode_id = episodes.episode_id
+WHERE 
+	(download_queue_episodes.episode_id is null OR download_queue_episodes.downloaded = 0)
+AND
+	episodes.has_source
+AND
+	episodes.course_id IN(1266930828,351651108,1814478058,1919793620)  --example Id list
+
+```
+
+### Example Insert for Attachments
+
+```sql
+
+INSERT INTO skillshare.download_queue_attachments (attachment_id, course_id, link)
+SELECT 
+	attachments.id,
+    attachments.course_id,
+    skillshare.attachments.url
+ FROM skillshare.attachments attachments
+LEFT JOIN download_queue_attachments ON download_queue_attachments.course_id = attachments.course_id
+WHERE 
+	(download_queue_attachments.attachment_id is null OR download_queue_attachments.downloaded = 0)
+AND
+	attachments.url is not null
+AND
+	attachments.course_id IN(1266930828,351651108,1814478058,1919793620) --example Id list
+```
