@@ -116,23 +116,32 @@
     var vueAppObj = {
         el: '#scraper-vue-app',
         data: {
+            autostart: true,
             status: "Stopped", 
-            states: {stopped: "Stopped", scrolling: "Scrolling", collecting: "Collecting", sending: "Sending", complete: "Complete"},      
+            states: {stopped: "Stopped", scrolling: "Scrolling", collecting: "Collecting", sending: "Sending", next: "Moving Next", complete: "Complete"},      
             collectionState: {
                 coursesData : [],
                 
                 totalFound: 0,
                 totalAdded: 0,
                 totalIgnored: 0,
-
+                
+                foundThisSession: 0,
                 sentCount: 0,
-                responseCount: 0
+                responsesCount: 0
             },
             scrollingState: {
                 scrolling: false,
                 scrollTop: 0,
                 scrollTries: 0,
                 scrollRetries: 0
+            },
+            categoriesState: {
+                categories: [],
+                categoryIndex: 0,
+                sortTypeIndex: 0,
+                sortTypes: ['recently-added', 'rating'],
+                baseUrl: 'https://www.skillshare.com/browse/'
             }
         },
         methods: {
@@ -172,9 +181,99 @@
             },
 
             sendingComplete: async function(){
+                if(this.categoriesState.categoryIndex -1 == this.categoriesState.categories.length && this.categoriesState.sortTypes == 1){
+                    this.status = this.states.complete;
+                } else {
+                    this.status = this.states.next;
+                    this.moveNextSortType();
+                }
+            },
 
+            everthingComplete: function(){
                 this.status = this.states.complete;
-            },            
+            },
+    
+            /**************************************
+             ===== Page Switching Methods =====
+            **************************************/
+
+            fillInCollectionStats: function(){
+                let self = this.collectionState;
+                let urlParams = new URLSearchParams(window.location.search);
+
+                let totalFound = urlParams.get('found');
+                let totalAdded = urlParams.get('added');
+                let totalIgnored = urlParams.get('ignored');
+
+                if(typeof totalFound !== 'undefined'){
+                    self.totalFound = Number(totalFound);
+                }
+
+                if(typeof totalAdded !== 'undefined'){
+                    self.totalAdded = Number(totalAdded);
+                }
+
+                if(typeof totalIgnored !== 'undefined'){
+                    self.totalIgnored = Number(totalIgnored);
+                }
+                
+
+            },
+
+            getCurrentCategory: function(){
+                let category = window.location.pathname.split('/')[2];
+
+                let index = this.categoriesState.categories.indexOf(category);
+
+                if(index == -1){
+                    throw `Invalid category: ${category}`
+                }
+
+                return index;
+            },
+
+            getCurrentSortTypeIndex: function(){
+                let urlParams = new URLSearchParams(window.location.search);
+                let sortType = urlParams.get('sort');
+
+                let index = this.categoriesState.sortTypes.indexOf(sortType);
+
+                if(index == -1){
+                    throw `Invalid sort type: ${sortType}`
+                }
+
+                return index;
+            },
+
+            moveNextSortType: function(){
+                let self = this.categoriesState;
+
+                let collectionStatParams = `&found=${this.collectionState.totalFound}&added=${this.collectionState.totalAdded}&ignored=${this.collectionState.totalIgnored}`;
+
+                if(self.sortTypeIndex == 1){
+                    self.sortTypeIndex = 0; //reset sort type
+                    this.moveNextCategory();
+                } else {
+                    self.sortTypeIndex ++;
+                    let url = self.baseUrl + self.categories[self.categoryIndex] + '?sort=' + self.sortTypes[self.sortTypeIndex] + collectionStatParams;
+                    window.location.assign(url);
+                }
+            },
+       
+
+            moveNextCategory: function(){
+                let self = this.categoriesState;
+
+                let collectionStatParams = `&found=${this.collectionState.totalFound}&added=${this.collectionState.totalAdded}&ignored=${this.collectionState.totalIgnored}`;
+
+                if(self.categoryIndex == self.categories.length -1){
+                    this.everthingComplete();
+                } else {
+                    self.categoryIndex ++;
+                    let url = self.baseUrl + self.categories[self.categoryIndex] + '?sort=' + self.sortTypes[self.sortTypeIndex] + collectionStatParams;
+                    window.location.assign(url);
+                }
+            },
 
             /**************************************
                 ===== Sending Methods =====
@@ -199,7 +298,11 @@
                                 },
                                 (response) => { //Error
                                     
-                                    console.log(response.responseJSON.message);
+                                    if(response.status != 409){
+                                        console.log(response.responseJSON.message);
+                                        console.log(response);
+                                    }
+
                                     self.responsesCount ++;
                                     self.totalIgnored ++;
                                     checkIfSendingComplete();
@@ -211,7 +314,7 @@
                     }
 
                     this.checkIfSendingComplete();
-                    await sleep(250);
+                    await sleep(350);
                     this.sendCourses(index + chunk);
                 }
             },
@@ -220,9 +323,55 @@
             checkIfSendingComplete: function(){
                 let self = this.collectionState;
 
-                if(self.totalFound == self.responsesCount){
+                if(self.foundThisSession == self.responsesCount){
                     this.sendingComplete();
                 }
+            },
+
+            /*************************************
+             ===== Category Collection Methods =====
+            **************************************/
+
+            getCategories: function(flatten){
+                let categories = [];
+                let cleanCategoryName = this.cleanCategoryName;
+                $('.side-sticky-menu-wrapper .content-body .tag-link-wrapper.primary-tag-link-wrapper').each(function(index){
+
+                    let category = {};
+                    category.text = cleanCategoryName($(this).children('a.tag-link').attr('data-ss-tag-slug'));
+
+                    category.hasChildren = $(this).children('.related-tags-flyover').length != 0;
+                    if(category.hasChildren){
+                        category.children = [];
+                        $(this).children('.related-tags-flyover').find('.tag-link-wrapper a.tag-link').each(function(index){
+                            if(index > 0){
+                                category.children.push(cleanCategoryName($(this).attr('data-ss-tag-slug')));
+                            }
+                        })
+                    }
+                    categories.push(category);
+                });
+
+                if(flatten){
+                    let flatCategories = [];
+                    for(let i = 0; i < categories.length; i++){
+                        flatCategories.push(categories[i].text);
+
+                        if(categories[i].hasChildren){
+                            flatCategories = flatCategories.concat(categories[i].children);
+                        }
+                    }
+
+                    return flatCategories;
+                }
+
+                return categories;
+            },
+
+            //Cleans category names to turn them into the url-friendly tags
+            cleanCategoryName:function(name, index){
+                let clean = name.toLowerCase().replace(' ', '-').replace('/', '-').replace('&', 'and');
+                return clean;
             },
 
             /*************************************
@@ -234,7 +383,7 @@
 
                 self.coursesData.length = 0; //reset courses data
                 self.sentCount = 0;
-                self.responseCount = 0;
+                self.responsesCount = 0;
 
                 this.collectData();
             },
@@ -246,6 +395,7 @@
 
                 $('.col-4 .ss-card__title a').each(function(index){
                     self.totalFound++;
+                    self.foundThisSession++;
 
                     let output = {
                         name: $(this).text(),
@@ -345,16 +495,23 @@
         },
         mounted: function () {
             console.log("Mounted")
-        }
+
+            this.categoriesState.categories = this.getCategories(true);
+
+            this.categoriesState.categoryIndex = this.getCurrentCategory();
+            this.categoriesState.sortTypeIndex = this.getCurrentSortTypeIndex();
+
+            this.fillInCollectionStats();
+
+            console.log(this.categoriesState);
+
+            if(this.autostart){
+                this.toggleStart();
+            }
+        },
+
     }
 
 
     init();
 })();
-
-
-
-
-
-
-
