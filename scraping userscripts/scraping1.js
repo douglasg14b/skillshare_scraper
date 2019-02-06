@@ -6,216 +6,512 @@
 // @author       You
 // @match        *.skillshare.com/*
 // @require       https://cdn.jsdelivr.net/jquery/2.1.3/jquery.min.js
+// @require       https://cdn.jsdelivr.net/npm/vue@2.6.2/dist/vue.js
 // @grant        none
 // ==/UserScript==
 
+
 (function(){
 
-    var address= "localhost";
-    let container;
-    let scrollModule;
-    let dataCollectorModule
+     //Utility
+    function sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    /*  Init Code */
+
+    var template = `<div id="scraper-vue-app" class="scraper-head">
+    <div class="status">
+      <b>Status:</b>
+      <span>{{status}}...</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Found</th>
+          <th>Added</th>
+          <th>Ignored</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="found">{{collectionState.totalFound}}</td>
+          <td class="added">{{collectionState.totalAdded}}</td>
+          <td class="ignored">{{collectionState.totalIgnored}}</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="buttons">
+      <button v-on:click="toggleStart()" class="start-toggle">{{startToggleButtonText}}</button>
+      <button class="scroll-toggle">Stop Scrolling</button>
+    </div>
+  </div>
+  <style>
+    .scraper-head {
+      width: 250px;
+    }
+
+    .scraper-head > table {
+        width: 250px;
+    }
+
+    .scraper-head td, .scraper-head th {
+      border: 1px solid #999;
+      padding: 0.5rem;
+    }
+
+    .scraper-head table {
+      border-collapse: collapse;
+    }
+
+    .scraper-head .start-toggle {
+      float: left;
+    }
+
+    .scraper-head .scroll-toggle {
+      float: right;
+    }
+
+    .scraper-head .buttons {
+      padding-top:5px;
+    }
+
+    .scraper-head .status {
+      padding-bottom: 10px;
+      text-align: center;
+    }
+  </style>`;
 
     function addContainer(){
-        container = $('<div></div>');
+        container = $('<div"></div>');
         container.css({
             'top': '40vh',
             'right':10,
             'position': 'fixed',
             'z-index': 9999,
-            'text-align': 'center'
+            'text-align': 'center',
+            'background': 'white',
+            'padding': '5px',
+            'border': 'solid 3px black'
         });
         $('body').append(container);
+        container.append(template);
+    }
+
+    function createVueApp(){
+        app = new Vue(vueAppObj);
+        console.log("created vue app");
     }
 
     function init(){
         addContainer();
 
-        scrollModule = new ScrollModule(container);
-        dataCollectorModule = new DataCollectorModule(container);
+        createVueApp();
     }
 
-    init();
-    /* Modules */
+    /*  Application Code */
 
-    function DataCollectorModule(container){
-        let self = this;
+    var app;
 
-        self.button;
-        self.stats;
+    var vueAppObj = {
+        el: '#scraper-vue-app',
+        data: {
+            autostart: true,
+            status: "Stopped", 
+            states: {stopped: "Stopped", scrolling: "Scrolling", collecting: "Collecting", sending: "Sending", next: "Moving Next", complete: "Complete"},      
+            collectionState: {
+                coursesData : [],
+                
+                totalFound: 0,
+                totalAdded: 0,
+                totalIgnored: 0,
+                
+                foundThisSession: 0,
+                sentCount: 0,
+                responsesCount: 0
+            },
+            scrollingState: {
+                scrolling: false,
+                scrollTop: 0,
+                scrollTries: 0,
+                scrollRetries: 0
+            },
+            categoriesState: {
+                categories: [],
+                categoryIndex: 0,
+                sortTypeIndex: 0,
+                sortTypes: ['recently-added', 'rating'],
+                baseUrl: 'https://www.skillshare.com/browse/'
+            }
+        },
+        methods: {
 
-        self.coursesFound = 0;
-        self.coursesSent = 0;
-        self.coursesNotSent = 0;
-        self.responses = 0; //The # of responses to the sending
-        self.coursesData = [];
+            /*************************************
+              ===== State Management Methods =====
+            **************************************/
 
-        function sleep(ms) {
-            return new Promise(resolve => setTimeout(resolve, ms));
-        }
+            toggleStart: function(){
+                if(this.status == this.states.stopped){
+                    this.status = this.states.scrolling;
+                    this.startScrolling();
+                    return;
+                } else if(this.status = this.states.scrolling) {
+                    this.stopScrolling();
+                }
+                this.status = this.states.stopped;
+            },
 
-        function collectData(){
-                self.coursesData.length = 0;
-                self.coursesFound = 0;
-                self.coursesSent = 0;
-                self.coursesNotSent = 0;
-                self.responses = 0;
+            scrollingComplete: function(){
+                this.stopScrolling();
 
-            $('.col-4 .title-link a').each(function(index){
-                self.coursesFound++;
-                updateStats();
+                //This is here to try and catch a potentially long-loading scroll
+                //Since the whole page maxes out at 50 pages with 6 items each (300 total). Having less than 300 might indicate it is not done
+                if(this.getCourseCount < 300 && this.scrollRetries < 2){
+                    this.startScrolling();
+                }
 
-                let output = {
-                    name: $(this).text(),
-                    link: "",
-                    courseId: NaN
-                };
-                output.name = $(this).text();
-                let rawLink = $(this).attr('href');
-                let linkAndId = parseLinkAndId(rawLink);
-                output.link = linkAndId.link;
-                output.courseId = linkAndId.id;
-                self.coursesData.push(output)
-            })
-            sendCourses(0);
-        }
+                this.status = this.states.collecting;
+                this.startCollection();
+            },
 
-        async function sendCourses(index){
-            if(index < self.coursesData.length){
-                let chunk = 5;
-                for(let i = 0; i < chunk; i++){
-                    if(i+index < self.coursesData.length){
-                        $.post("https://"+address+"/skillshare/api/course/new", self.coursesData[i+index]).then(
-                            () => {
-                                self.coursesSent ++;
-                                self.responses ++;
-                                updateStats();
-                                checkMarkComplete();
-                            },
-                            (response) => {
-                                console.log(response.responseJSON.message);
-                                self.coursesNotSent ++;
-                                self.responses ++;
-                                updateStats();
-                                checkMarkComplete();
+            collectionComplete: async function(){
+
+                this.status = this.states.sending;
+                await this.sendCourses(0);
+            },
+
+            sendingComplete: async function(){
+                if(this.categoriesState.categoryIndex -1 == this.categoriesState.categories.length && this.categoriesState.sortTypes == 1){
+                    this.status = this.states.complete;
+                } else {
+                    this.status = this.states.next;
+                    this.moveNextSortType();
+                }
+            },
+
+            everthingComplete: function(){
+                this.status = this.states.complete;
+            },
+    
+            /**************************************
+             ===== Page Switching Methods =====
+            **************************************/
+
+            fillInCollectionStats: function(){
+                let self = this.collectionState;
+                let urlParams = new URLSearchParams(window.location.search);
+
+                let totalFound = urlParams.get('found');
+                let totalAdded = urlParams.get('added');
+                let totalIgnored = urlParams.get('ignored');
+
+                if(typeof totalFound !== 'undefined'){
+                    self.totalFound = Number(totalFound);
+                }
+
+                if(typeof totalAdded !== 'undefined'){
+                    self.totalAdded = Number(totalAdded);
+                }
+
+                if(typeof totalIgnored !== 'undefined'){
+                    self.totalIgnored = Number(totalIgnored);
+                }
+                
+
+            },
+
+            getCurrentCategory: function(){
+                let category = window.location.pathname.split('/')[2];
+
+                let index = this.categoriesState.categories.indexOf(category);
+
+                if(index == -1){
+                    throw `Invalid category: ${category}`
+                }
+
+                return index;
+            },
+
+            getCurrentSortTypeIndex: function(){
+                let urlParams = new URLSearchParams(window.location.search);
+                let sortType = urlParams.get('sort');
+
+                let index = this.categoriesState.sortTypes.indexOf(sortType);
+
+                if(index == -1){
+                    throw `Invalid sort type: ${sortType}`
+                }
+
+                return index;
+            },
+
+            moveNextSortType: function(){
+                let self = this.categoriesState;
+
+                let collectionStatParams = `&found=${this.collectionState.totalFound}&added=${this.collectionState.totalAdded}&ignored=${this.collectionState.totalIgnored}`;
+
+                if(self.sortTypeIndex == 1){
+                    self.sortTypeIndex = 0; //reset sort type
+                    this.moveNextCategory();
+                } else {
+                    self.sortTypeIndex ++;
+                    let url = self.baseUrl + self.categories[self.categoryIndex] + '?sort=' + self.sortTypes[self.sortTypeIndex] + collectionStatParams;
+                    window.location.assign(url);
+                }
+            },
+       
+
+            moveNextCategory: function(){
+                let self = this.categoriesState;
+
+                let collectionStatParams = `&found=${this.collectionState.totalFound}&added=${this.collectionState.totalAdded}&ignored=${this.collectionState.totalIgnored}`;
+
+                if(self.categoryIndex == self.categories.length -1){
+                    this.everthingComplete();
+                } else {
+                    self.categoryIndex ++;
+                    let url = self.baseUrl + self.categories[self.categoryIndex] + '?sort=' + self.sortTypes[self.sortTypeIndex] + collectionStatParams;
+                    window.location.assign(url);
+                }
+            },
+
+            /**************************************
+                ===== Sending Methods =====
+            **************************************/
+
+            sendCourses: async function (index){
+                let self = this.collectionState;
+                let address= "localhost"; //change this if not localhost
+                let checkIfSendingComplete = this.checkIfSendingComplete;
+
+                if(index < self.coursesData.length){
+                    let chunk = 5; //The number of courses it sends in one go
+                    for(let i = 0; i < chunk; i++){
+                        
+                        if(i+index < self.coursesData.length){
+                            self.sentCount ++;
+                            $.post("https://"+address+"/skillshare/api/course/new", self.coursesData[i+index]).then(
+                                () => { //Success
+                                    self.totalAdded ++;
+                                    self.responsesCount ++;
+                                    checkIfSendingComplete();
+                                },
+                                (response) => { //Error
+                                    
+                                    if(response.status != 409){
+                                        console.log(response.responseJSON.message);
+                                        console.log(response);
+                                    }
+
+                                    self.responsesCount ++;
+                                    self.totalIgnored ++;
+                                    checkIfSendingComplete();
+                                }
+                            );
+                        } else {
+                            break;
+                        }
+                    }
+
+                    this.checkIfSendingComplete();
+                    await sleep(350);
+                    this.sendCourses(index + chunk);
+                }
+            },
+
+
+            checkIfSendingComplete: function(){
+                let self = this.collectionState;
+
+                if(self.foundThisSession == self.responsesCount){
+                    this.sendingComplete();
+                }
+            },
+
+            /*************************************
+             ===== Category Collection Methods =====
+            **************************************/
+
+            getCategories: function(flatten){
+                let categories = [];
+                let cleanCategoryName = this.cleanCategoryName;
+                $('.side-sticky-menu-wrapper .content-body .tag-link-wrapper.primary-tag-link-wrapper').each(function(index){
+
+                    let category = {};
+                    category.text = cleanCategoryName($(this).children('a.tag-link').attr('data-ss-tag-slug'));
+
+                    category.hasChildren = $(this).children('.related-tags-flyover').length != 0;
+                    if(category.hasChildren){
+                        category.children = [];
+                        $(this).children('.related-tags-flyover').find('.tag-link-wrapper a.tag-link').each(function(index){
+                            if(index > 0){
+                                category.children.push(cleanCategoryName($(this).attr('data-ss-tag-slug')));
                             }
-                        );
-                    } else {
+                        })
+                    }
+                    categories.push(category);
+                });
+
+                if(flatten){
+                    let flatCategories = [];
+                    for(let i = 0; i < categories.length; i++){
+                        flatCategories.push(categories[i].text);
+
+                        if(categories[i].hasChildren){
+                            flatCategories = flatCategories.concat(categories[i].children);
+                        }
+                    }
+
+                    return flatCategories;
+                }
+
+                return categories;
+            },
+
+            //Cleans category names to turn them into the url-friendly tags
+            cleanCategoryName:function(name, index){
+                let clean = name.toLowerCase().replace(' ', '-').replace('/', '-').replace('&', 'and');
+                return clean;
+            },
+
+            /*************************************
+                ===== Collection Methods =====
+            **************************************/
+
+            startCollection: function(){
+                let self = this.collectionState;
+
+                self.coursesData.length = 0; //reset courses data
+                self.sentCount = 0;
+                self.responsesCount = 0;
+
+                this.collectData();
+            },
+
+            //Collects the page course data
+            collectData: async function(){
+                let self = this.collectionState;
+                let parseLinkAndId = this.parseLinkAndId;
+
+                $('.col-4 .ss-card__title a').each(function(index){
+                    self.totalFound++;
+                    self.foundThisSession++;
+
+                    let output = {
+                        name: $(this).text(),
+                        link: "",
+                        courseId: NaN
+                    };
+                    output.name = $(this).text();
+                    let rawLink = $(this).attr('href');
+                    let linkAndId = parseLinkAndId(rawLink);
+                    output.link = linkAndId.link;
+                    output.courseId = linkAndId.id;
+                    self.coursesData.push(output)
+                })
+                //console.log(self.coursesData);
+                this.collectionComplete();
+            },
+
+            //Used by the 
+            parseLinkAndId : function (text){
+                let output = {
+                    link: '',
+                    id: NaN
+                };
+                let end = text.indexOf("?");
+                output.link = text.substring(0, end);
+                for(let i = text.length; i > 0; i-- ){
+                    if(text[i] == "/"){
+                        output.id = text.substring(i + 1, end);
                         break;
                     }
                 }
-                updateStats();
-                checkMarkComplete();
-                await sleep(250);
-                sendCourses(index + chunk);
-            }
-        }
+                return output;
+            },
 
-        function parseLinkAndId(text){
-            let output = {
-                link: '',
-                id: NaN
-            };
-            let end = text.indexOf("?");
-            output.link = text.substring(0, end);
-            for(let i = text.length; i > 0; i-- ){
-                if(text[i] == "/"){
-                    output.id = text.substring(i + 1, end);
-                    break;
+            getCourseCount: function(){
+                return $('.col-4 .ss-card__title a').length;
+            },
+
+            /*************************************
+                ===== Scrolling Methods =====
+            **************************************/
+
+            startScrolling: function(){
+                let self = this.scrollingState;
+                self.scrolling = true;
+                self.scrollTries = 0;
+                self.scrollTop = 0;
+
+                this.scrollPage();
+            },
+
+            stopScrolling: function(){
+                let self = this.scrollingState;
+
+                self.scrolling = false;
+                self.scrollTries = 0;
+                self.scrollTop = 0;
+
+            },
+
+            scrollPage: function(){
+                let self = this.scrollingState;
+                let scrollTop = $(window).scrollTop();
+    
+                if(self.scrolling){
+    
+                    if (self.scrollTop != scrollTop){
+                        self.scrollTries = 0;
+                        self.scrollRetries = 0; //Reset retries since there was scrolling left to do
+                    } else {
+                        self.scrollTries ++;
+    
+                        if(self.scrollTries >= 750){
+                            this.scrollingComplete();
+                            return;
+                        }
+                    }
+    
+                    self.scrollTop = scrollTop;
+                    window.scrollBy(0,20);
+                    setTimeout(this.scrollPage, 10);
                 }
             }
-            return output;
-        }
-
-        function checkMarkComplete(){
-            if(self.coursesFound == self.responses){
-                self.stats.css({color: "green"});
-                self.coursesData.length = 0;
-                self.coursesFound = 0;
-                self.coursesSent = 0;
-                self.coursesNotSent = 0;
-                self.responses = 0;
-
-            } else {
-                self.stats.css({color: "black"});
+        },
+        computed: {
+            startToggleButtonText: function(){
+                switch(this.status){
+                    case this.states.stopped:
+                        return "Start";
+                    case this.states.scrolling:
+                    case this.states.collecting:
+                    case this.states.sending:
+                    case this.states.next:
+                        return "Stop";
+                }
             }
-        }
+        },
+        mounted: function () {
+            console.log("Mounted")
 
-        function updateStats(){
-            self.stats.html(`${self.coursesSent}/${self.coursesFound} Added. ${self.coursesNotSent} Not Added <br> ${self.responses}/${self.coursesFound} Handled`);
-            //self.stats.text(`Found ${self.coursesFound} courses sent ${self.coursesSent}`);
-        }
+            this.categoriesState.categories = this.getCategories(true);
 
-        function addStats(){
-            let stats = $('<div style="background:white;"></div>');
-            container.append(stats);
-            self.stats = stats;
-        }
+            this.categoriesState.categoryIndex = this.getCurrentCategory();
+            this.categoriesState.sortTypeIndex = this.getCurrentSortTypeIndex();
 
-        function addCollectButton(){
-            let button = $('<div><button>Collect Data</button></div>');
-            button.css({
-                'padding': '0.4em'
-            });
-            container.append(button);
-            button.on('click', collectData);
-            self.button = button;
-        }
+            this.fillInCollectionStats();
 
-        function init(){
-            addCollectButton();
-            addStats();
-        }
+            console.log(this.categoriesState);
 
-        init();
+            if(this.autostart){
+                this.toggleStart();
+            }
+        },
+
     }
 
-    function ScrollModule(container){
-        let self = this;
 
-        self.scrollButton;
-        self.scrolling = false;
-
-        self.init = init;
-
-
-
-        function startScroll(){
-            self.scrolling = true;
-            self.scrollButton.text('Stop..');
-            self.scrollButton.one('click', stopScroll);
-            scrollPage();
-        }
-
-        function stopScroll(){
-            self.scrolling = false;
-            self.scrollButton.text('Scroll');
-            self.scrollButton.one('click', startScroll);
-        }
-
-        function scrollPage(){
-            if(self.scrolling){
-                window.scrollBy(0,20);
-                setTimeout(scrollPage,10);
-            }
-        }
-
-        function addScrollButton(){
-            let innerContainer = $('<div></div>');
-            let scrollButton = $('<button>Scroll</button>');
-            scrollButton.css({
-                'padding': '0.4em'
-            });
-            innerContainer.append(scrollButton);
-            container.append(innerContainer);
-            scrollButton.one('click', startScroll);
-            self.scrollButton = scrollButton;
-        }
-
-        function init(){
-            addScrollButton();
-        }
-
-        init();
-    }
+    init();
 })();
