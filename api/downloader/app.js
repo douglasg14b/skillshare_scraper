@@ -15,7 +15,7 @@ angular.module('app', [])
     self.courseId; //Input course Id, only used for single course
     self.course; //Course details
     self.parallelism = 2; //Number of parallel downloads
-    self.pullAssigned = true;
+    self.pullAssigned = true; //Pulls assigned episodes, vs ignoring episodes that have already been assigned
 
     self.getSingleCourseDetails = getSingleCourseDetails; //only used for single course
     self.reset = reset; //only used for single course

@@ -1,5 +1,5 @@
 <?php
-include_once __DIR__.'../../config.php';
+include_once __DIR__.'/../../config.php';
 include_once 'Downloader.php';
 
 
@@ -14,20 +14,24 @@ $_POST = json_decode($rest_json, true);
 $destination = BASE_DOWNLOAD_PATH.$_POST['path'];
 $name = $_POST['filename'];
 $source = $_POST['url'];
+try {
+    $downloader = new Downloader($source);
 
-$downloader = new Downloader($source);
-
-$progressId = $downloader->progressId;
-
-print_r(json_encode([
-    'progressId' => $progressId
-]));
-
-header('Connection: close');
-header('Content-Length: '.ob_get_length());
-ob_end_flush();
-ob_flush();
-flush();
-
-$downloader->Download($source, $destination, $name);
-return;
+    $progressId = $downloader->progressId;
+    
+    print_r(json_encode([
+        'progressId' => $progressId
+    ]));
+    
+    header('Connection: close');
+    header('Content-Length: '.ob_get_length());
+    ob_end_flush();
+    ob_flush();
+    flush();
+    
+    $downloader->Download($source, $destination, $name);
+    return;
+} 
+catch(Exception $ex){
+    print_r(json_encode($ex->getMessage()));
+}
